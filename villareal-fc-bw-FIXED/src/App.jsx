@@ -400,10 +400,33 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
 const CalendarScreen = () => {
   const [subTab,setSubTab]=useState("calendar")
   const [fixtures,setFixtures]=useState([])
+  const [playerPhotos,setPlayerPhotos]=useState({})
   useEffect(()=>{
     supabase.from("fixtures").select("*").order("match_date")
       .then(({data})=>{ if(data) setFixtures(data) })
   },[])
+
+  // Load player photos from Supabase Storage
+  useEffect(()=>{
+    const loadPhotos = async () => {
+      const { data } = await supabase.storage.from("player-photos").list("", {
+        limit: 100, offset: 0
+      })
+      if (!data) return
+      const photoMap = {}
+      data.forEach(file => {
+        // File names are BFA IDs e.g. "007100M97.jpg"
+        const bfaId = file.name.replace(/\.(jpg|jpeg|png|webp)$/i, "")
+        const { data: urlData } = supabase.storage
+          .from("player-photos")
+          .getPublicUrl(file.name)
+        if (urlData?.publicUrl) photoMap[bfaId] = urlData.publicUrl
+      })
+      setPlayerPhotos(photoMap)
+    }
+    loadPhotos()
+  },[])
+
   const fixtureMap={}
   fixtures.forEach(f=>{
     const d=new Date(f.match_date)
@@ -559,38 +582,134 @@ const CalendarScreen = () => {
 
   const filteredPlayers = SQUAD.filter(p => p.team === teamFilter)
 
+  const [uploading, setUploading] = useState(null)  // bfaId currently uploading
+  const [uploadErr, setUploadErr] = useState("")
+
+  const handlePhotoUpload = async (player, e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setUploading(player.id)
+    setUploadErr("")
+    try {
+      // Upload to Supabase Storage — filename = BFA ID + extension
+      const ext = file.name.split(".").pop().toLowerCase()
+      const filename = `${player.id}.${ext}`
+      const { error: upErr } = await supabase.storage
+        .from("player-photos")
+        .upload(filename, file, { upsert: true, contentType: file.type })
+      if (upErr) throw upErr
+      // Get public URL and update local state immediately
+      const { data: urlData } = supabase.storage
+        .from("player-photos")
+        .getPublicUrl(filename)
+      if (urlData?.publicUrl) {
+        setPlayerPhotos(prev => ({ ...prev, [player.id]: urlData.publicUrl + "?t=" + Date.now() }))
+      }
+    } catch(err) {
+      setUploadErr(`${player.name}: ${err.message}`)
+    }
+    setUploading(null)
+  }
+
+  const triggerUpload = (player) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/jpeg,image/jpg,image/png,image/webp"
+    input.onchange = (e) => handlePhotoUpload(player, e)
+    input.click()
+  }
+
   const PlayersTab=()=>(
-    <div style={{flex:1,overflowY:"auto",padding:"0 0 16px",WebkitOverflowScrolling:"touch"}}>
-      <div style={{padding:"10px 12px 8px",
-        borderBottom:`1px solid #eee`,
-        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-          fontSize:13,color:NAVY}}>
-          {filteredPlayers.length} PLAYERS · {teamFilter}
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+
+      {/* Upload error banner */}
+      {uploadErr&&(
+        <div style={{background:"#fef2f2",border:`1px solid #fecaca`,
+          padding:"10px 14px",margin:"8px 12px",borderRadius:8,
+          fontSize:12,color:RED,fontWeight:600}}>
+          ⚠ {uploadErr}
+          <span onClick={()=>setUploadErr("")}
+            style={{float:"right",cursor:"pointer",fontWeight:900}}>✕</span>
         </div>
+      )}
+
+      {/* Upload hint */}
+      <div style={{padding:"8px 14px 6px",
+        display:"flex",alignItems:"center",gap:8,
+        borderBottom:`1px solid #eee`}}>
+        <span style={{fontSize:16}}>📸</span>
+        <span style={{fontSize:11,color:MGRAY,lineHeight:1.4}}>
+          Tap any player card to upload their photo directly to storage
+        </span>
       </div>
+
       <div style={{display:"flex",flexDirection:"column",gap:0}}>
         {filteredPlayers.map((p,i)=>{
           const age = getAge(p.dob)
           const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()
+          const hasPhoto = !!playerPhotos[p.id]
+          const isUploading = uploading === p.id
+
           return (
-            <div key={p.id} style={{
-              display:"flex",alignItems:"center",gap:12,
-              padding:"10px 14px",
-              borderBottom:`1px solid #f0f0f0`,
-              background:i%2===0?WHITE:"#fafafa",
-            }}>
-              {/* Avatar */}
-              <div style={{
-                width:52,height:52,borderRadius:10,flexShrink:0,
-                background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                border:`2px solid ${GOLD}`,position:"relative",
+            <div key={p.id}
+              onClick={()=>triggerUpload(p)}
+              style={{
+                display:"flex",alignItems:"center",gap:12,
+                padding:"10px 14px",
+                borderBottom:`1px solid #f0f0f0`,
+                background:i%2===0?WHITE:"#fafafa",
+                cursor:"pointer",
+                WebkitTapHighlightColor:"transparent",
+                opacity:isUploading?0.6:1,
+                transition:"opacity 0.2s",
               }}>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",
-                  fontWeight:900,fontSize:18,color:GOLD}}>{initials}</span>
+
+              {/* Avatar — photo or initials */}
+              <div style={{
+                width:56,height:56,borderRadius:10,flexShrink:0,
+                background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+                border:`2px solid ${hasPhoto?GREEN:GOLD}`,
+                position:"relative",overflow:"hidden",
+                display:"flex",alignItems:"center",justifyContent:"center",
+              }}>
+                {isUploading ? (
+                  <div style={{fontSize:20,animation:"spin 1s linear infinite"}}>⏳</div>
+                ) : hasPhoto ? (
+                  <>
+                    <img
+                      src={playerPhotos[p.id]}
+                      alt={p.name}
+                      style={{width:"100%",height:"100%",objectFit:"cover",
+                        objectPosition:"center top",display:"block"}}
+                      onError={e=>{
+                        e.target.style.display="none"
+                        setPlayerPhotos(prev=>({...prev,[p.id]:null}))
+                      }}
+                    />
+                    {/* Green tick overlay */}
+                    <div style={{position:"absolute",bottom:2,right:2,
+                      background:GREEN,borderRadius:"50%",width:16,height:16,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:9,color:WHITE,fontWeight:900,border:`1.5px solid ${WHITE}`}}>
+                      ✓
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                      fontWeight:900,fontSize:18,color:GOLD}}>{initials}</span>
+                    {/* Camera icon overlay */}
+                    <div style={{position:"absolute",bottom:2,right:2,
+                      background:GOLD,borderRadius:"50%",width:16,height:16,
+                      display:"flex",alignItems:"center",justifyContent:"center",
+                      fontSize:9,border:`1.5px solid ${WHITE}`}}>
+                      📷
+                    </div>
+                  </>
+                )}
               </div>
-              {/* Info */}
+
+              {/* Player info */}
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",
                   fontWeight:900,fontSize:"clamp(13px,3.5vw,15px)",
@@ -607,16 +726,31 @@ const CalendarScreen = () => {
                   BFA ID: {p.id}
                 </div>
               </div>
-              {/* Team badge */}
-              <div style={{
-                background:p.team==="FIRST TEAM"?NAVY:p.team==="U21"?GREEN:"#e67e22",
-                color:WHITE,fontSize:9,fontWeight:800,
-                padding:"3px 7px",borderRadius:4,flexShrink:0,
-                fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em",
-              }}>{p.team}</div>
+
+              {/* Right side — status + team badge */}
+              <div style={{display:"flex",flexDirection:"column",
+                alignItems:"flex-end",gap:5,flexShrink:0}}>
+                <div style={{
+                  background:p.team==="FIRST TEAM"?NAVY:p.team==="U21"?GREEN:"#e67e22",
+                  color:WHITE,fontSize:9,fontWeight:800,
+                  padding:"3px 7px",borderRadius:4,
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em",
+                }}>{p.team}</div>
+                <div style={{fontSize:10,color:hasPhoto?GREEN:MGRAY,fontWeight:600}}>
+                  {isUploading?"uploading...":hasPhoto?"photo ✓":"tap to add"}
+                </div>
+              </div>
             </div>
           )
         })}
+      </div>
+
+      {/* Summary footer */}
+      <div style={{padding:"12px 14px",background:"#f8f9fb",
+        borderTop:`1px solid #eee`,textAlign:"center"}}>
+        <span style={{fontSize:11,color:MGRAY}}>
+          {Object.keys(playerPhotos).length} of {SQUAD.length} players have photos
+        </span>
       </div>
     </div>
   )
