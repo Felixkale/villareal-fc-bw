@@ -829,37 +829,197 @@ const CalendarScreen = () => {
 /* ══════════════════════════════════════════════════════════════════════════════
    CLIPS
 ══════════════════════════════════════════════════════════════════════════════ */
+const CLIPS_DATA = [
+  { id:1, player:"KGOPOTSO NTSHELE",   num:"#9",  tag:"GOAL ⚽",   likes:4300, shares:1200 },
+  { id:2, player:"OABILE TSHOSA",       num:"#10", tag:"ASSIST 🎯", likes:3100, shares:890  },
+  { id:3, player:"NEO MOSEKI",          num:"#11", tag:"SKILL 🔥",  likes:2700, shares:650  },
+  { id:4, player:"LEFIKA DITLHARE",     num:"#17", tag:"GOAL ⚽",   likes:1900, shares:430  },
+]
+
 const ClipsScreen=()=>{
-  const [liked,setLiked]=useState(false)
+  const [liked,   setLiked]   = useState({})
+  const [current, setCurrent] = useState(0)
+  const clip = CLIPS_DATA[current]
+  const isLiked = !!liked[clip.id]
+
+  const toggleLike = () => setLiked(prev=>({...prev,[clip.id]:!prev[clip.id]}))
+  const likeCount = (clip.likes + (isLiked?1:0)).toLocaleString()
+
   return (
     <div style={{flex:1,background:"#000",display:"flex",flexDirection:"column",
-      position:"relative",overflow:"hidden"}}>
-      <div style={{position:"absolute",top:12,left:0,right:0,zIndex:10,textAlign:"center"}}>
-        <span style={{color:WHITE,fontWeight:700,fontSize:16}}>Clips</span>
-      </div>
-      <div style={{flex:1,background:`linear-gradient(160deg,${NAVY},#1a3060,#0a1020)`,
-        display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
-        <div style={{opacity:0.1,position:"absolute"}}><Logo size={220}/></div>
-        <Logo size={90}/>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:"clamp(22px,6vw,28px)",color:GOLD,letterSpacing:"0.06em",
-          marginTop:16,textAlign:"center"}}>
-          KGOPOTSO<br/>NTSHELE
+      position:"relative",overflow:"hidden",userSelect:"none"}}>
+
+      {/* Header */}
+      <div style={{position:"absolute",top:0,left:0,right:0,zIndex:20,
+        padding:"12px 16px 0",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        background:"linear-gradient(to bottom,rgba(0,0,0,0.5),transparent)"}}>
+        <div style={{display:"flex",gap:20}}>
+          <span style={{color:"rgba(255,255,255,0.6)",fontWeight:700,
+            fontSize:"clamp(13px,3.5vw,15px)",
+            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
+            FOLLOWING
+          </span>
+          <span style={{color:WHITE,fontWeight:900,
+            fontSize:"clamp(13px,3.5vw,15px)",
+            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em",
+            borderBottom:`2px solid ${GOLD}`,paddingBottom:2}}>
+            FOR YOU
+          </span>
         </div>
-        <div style={{color:WHITE,fontWeight:700,fontSize:20,marginTop:2}}>#9</div>
       </div>
-      <div style={{position:"absolute",right:16,bottom:80,display:"flex",
-        flexDirection:"column",gap:18,alignItems:"center"}}>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-          <button onClick={()=>setLiked(l=>!l)} style={{background:"none",border:"none",
-            cursor:"pointer",fontSize:28,WebkitTapHighlightColor:"transparent",minHeight:44}}>
-            {liked?"❤️":"🤍"}
-          </button>
-          <span style={{color:WHITE,fontSize:11}}>{liked?"4.4k":"4.3k"}</span>
+
+      {/* Main clip area */}
+      <div style={{flex:1,position:"relative",
+        background:`linear-gradient(160deg,${NAVY} 0%,#0d1a38 50%,#000 100%)`,
+        display:"flex",alignItems:"center",justifyContent:"center",
+        overflow:"hidden"}}>
+
+        {/* Watermark logo */}
+        <div style={{position:"absolute",opacity:0.06,
+          display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <Logo size={"clamp(180px,50vw,260px)"}/>
         </div>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-          <span style={{fontSize:24,color:WHITE}}>↗</span>
-          <span style={{color:WHITE,fontSize:11}}>1.2k</span>
+
+        {/* Player showcase */}
+        <div style={{display:"flex",flexDirection:"column",
+          alignItems:"center",justifyContent:"center",
+          padding:"60px 20px 80px",width:"100%"}}>
+
+          {/* Tag pill */}
+          <div style={{background:GOLD,color:NAVY,
+            fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(11px,3vw,13px)",letterSpacing:"0.1em",
+            padding:"4px 14px",borderRadius:20,marginBottom:16}}>
+            {clip.tag}
+          </div>
+
+          {/* Logo */}
+          <div style={{marginBottom:16}}>
+            <Logo size={"clamp(80px,22vw,110px)"}/>
+          </div>
+
+          {/* Player name */}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(28px,8vw,38px)",color:GOLD,
+            letterSpacing:"0.06em",textAlign:"center",lineHeight:1.05,
+            textShadow:"0 2px 20px rgba(0,0,0,0.6)"}}>
+            {clip.player.split(" ").map((w,i)=>(
+              <div key={i}>{w}</div>
+            ))}
+          </div>
+          <div style={{color:"rgba(255,255,255,0.8)",fontWeight:700,
+            fontSize:"clamp(16px,4.5vw,22px)",marginTop:4,
+            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.04em"}}>
+            {clip.num}
+          </div>
+
+          {/* Clip navigation dots */}
+          <div style={{display:"flex",gap:6,marginTop:20}}>
+            {CLIPS_DATA.map((_,i)=>(
+              <div key={i} onClick={()=>setCurrent(i)}
+                style={{
+                  width:i===current?20:6,height:6,borderRadius:3,
+                  background:i===current?GOLD:"rgba(255,255,255,0.3)",
+                  cursor:"pointer",transition:"width 0.2s",
+                }}/>
+            ))}
+          </div>
+        </div>
+
+        {/* Swipe arrows — desktop */}
+        {current > 0 && (
+          <button onClick={()=>setCurrent(c=>c-1)}
+            style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",
+              width:36,height:36,cursor:"pointer",color:WHITE,fontSize:18,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              WebkitTapHighlightColor:"transparent"}}>‹</button>
+        )}
+        {current < CLIPS_DATA.length-1 && (
+          <button onClick={()=>setCurrent(c=>c+1)}
+            style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",
+              background:"rgba(255,255,255,0.15)",border:"none",borderRadius:"50%",
+              width:36,height:36,cursor:"pointer",color:WHITE,fontSize:18,
+              display:"flex",alignItems:"center",justifyContent:"center",
+              WebkitTapHighlightColor:"transparent"}}>›</button>
+        )}
+      </div>
+
+      {/* Bottom info bar */}
+      <div style={{
+        position:"absolute",bottom:0,left:0,right:0,
+        background:"linear-gradient(to top,rgba(0,0,0,0.85),transparent)",
+        padding:"clamp(16px,4vw,24px) clamp(12px,4vw,16px) clamp(12px,3vw,16px)",
+        display:"flex",alignItems:"flex-end",justifyContent:"space-between",
+      }}>
+        {/* Left — player info */}
+        <div style={{flex:1,minWidth:0,paddingRight:12}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+            <div style={{width:32,height:32,borderRadius:"50%",
+              border:`2px solid ${GOLD}`,overflow:"hidden",flexShrink:0,
+              background:NAVY,display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                fontWeight:900,fontSize:11,color:GOLD}}>
+                {clip.player.split(" ").map(w=>w[0]).join("").slice(0,2)}
+              </span>
+            </div>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:"clamp(12px,3.5vw,14px)",color:WHITE,
+              overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              @{clip.player.split(" ")[0].toLowerCase()}_{clip.player.split(" ").slice(-1)[0].toLowerCase()}
+            </span>
+            <div style={{background:GOLD,color:NAVY,fontSize:8,fontWeight:900,
+              padding:"1px 5px",borderRadius:3,flexShrink:0,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>FOLLOW</div>
+          </div>
+          <div style={{fontSize:"clamp(11px,2.8vw,13px)",color:"rgba(255,255,255,0.8)",
+            lineHeight:1.4,
+            overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+            {clip.tag} · Villareal FC 🦡 #BRFA #TheHoneyBadgers
+          </div>
+        </div>
+
+        {/* Right — actions */}
+        <div style={{display:"flex",flexDirection:"column",gap:14,alignItems:"center",flexShrink:0}}>
+          {/* Like */}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <button onClick={toggleLike}
+              style={{background:"none",border:"none",cursor:"pointer",
+                minHeight:44,minWidth:44,display:"flex",alignItems:"center",
+                justifyContent:"center",WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:"clamp(24px,6vw,30px)",
+                filter:isLiked?"drop-shadow(0 0 6px rgba(255,50,50,0.8))":"none",
+                transition:"filter 0.2s"}}>
+                {isLiked?"❤️":"🤍"}
+              </span>
+            </button>
+            <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:600}}>
+              {likeCount}
+            </span>
+          </div>
+          {/* Share */}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              minHeight:44,minWidth:44,display:"flex",alignItems:"center",
+              justifyContent:"center",WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:"clamp(22px,5.5vw,28px)"}}>↗</span>
+            </button>
+            <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:600}}>
+              {clip.shares.toLocaleString()}
+            </span>
+          </div>
+          {/* Comment */}
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+            <button style={{background:"none",border:"none",cursor:"pointer",
+              minHeight:44,minWidth:44,display:"flex",alignItems:"center",
+              justifyContent:"center",WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:"clamp(20px,5vw,26px)"}}>💬</span>
+            </button>
+            <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:600}}>
+              {Math.round(clip.likes/8).toLocaleString()}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -2408,6 +2568,159 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
 
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   STATUS BAR — real time, network, battery
+══════════════════════════════════════════════════════════════════════════════ */
+const StatusBar = ({ dark }) => {
+  const [time,    setTime]    = useState("")
+  const [battery, setBattery] = useState(null)   // { level, charging }
+  const [network, setNetwork] = useState("WIFI")  // WIFI | 4G | 3G | 2G | offline
+
+  // Real clock
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      const h = now.getHours().toString().padStart(2,"0")
+      const m = now.getMinutes().toString().padStart(2,"0")
+      setTime(`${h}:${m}`)
+    }
+    tick()
+    const id = setInterval(tick, 10000) // update every 10s
+    return () => clearInterval(id)
+  }, [])
+
+  // Real battery (supported in Chrome/Android)
+  useEffect(() => {
+    if (navigator.getBattery) {
+      navigator.getBattery().then(bat => {
+        const update = () => setBattery({
+          level: Math.round(bat.level * 100),
+          charging: bat.charging,
+        })
+        update()
+        bat.addEventListener("levelchange",   update)
+        bat.addEventListener("chargingchange", update)
+        return () => {
+          bat.removeEventListener("levelchange",   update)
+          bat.removeEventListener("chargingchange", update)
+        }
+      }).catch(() => setBattery(null))
+    }
+  }, [])
+
+  // Real network type
+  useEffect(() => {
+    const detect = () => {
+      if (!navigator.onLine) { setNetwork("OFFLINE"); return }
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+      if (!conn) {
+        // Fallback — check if page loaded via localhost or https (likely wifi)
+        setNetwork("WIFI")
+        return
+      }
+      const type = conn.type || ""
+      const eff  = conn.effectiveType || ""
+      if (type === "wifi" || type === "ethernet") {
+        setNetwork("WIFI")
+      } else if (eff === "4g") {
+        setNetwork("4G")
+      } else if (eff === "3g") {
+        setNetwork("3G")
+      } else if (eff === "2g" || eff === "slow-2g") {
+        setNetwork("2G")
+      } else {
+        setNetwork("WIFI")
+      }
+    }
+    detect()
+    window.addEventListener("online",  detect)
+    window.addEventListener("offline", detect)
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    if (conn) conn.addEventListener("change", detect)
+    return () => {
+      window.removeEventListener("online",  detect)
+      window.removeEventListener("offline", detect)
+      if (conn) conn.removeEventListener("change", detect)
+    }
+  }, [])
+
+  const textColor = dark ? WHITE : NAVY
+  const bgColor   = dark ? "#000" : WHITE
+
+  // Battery icon
+  const BatteryIcon = () => {
+    if (!battery) return null
+    const pct   = battery.level
+    const color = pct <= 20 ? RED : pct <= 50 ? "#f39c12" : GREEN
+    const width = Math.max(2, Math.round(pct / 100 * 16))
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:2}}>
+        {battery.charging && (
+          <span style={{fontSize:9,color:GREEN}}>⚡</span>
+        )}
+        <div style={{width:20,height:10,borderRadius:2,
+          border:`1.5px solid ${textColor}`,position:"relative",
+          display:"flex",alignItems:"center",paddingLeft:1}}>
+          <div style={{width:width,height:6,borderRadius:1,background:color}}/>
+          {/* Battery tip */}
+          <div style={{position:"absolute",right:-3,top:"50%",
+            transform:"translateY(-50%)",width:2,height:5,
+            background:textColor,borderRadius:"0 1px 1px 0"}}/>
+        </div>
+        <span style={{fontSize:9,fontWeight:700,color:textColor}}>{pct}%</span>
+      </div>
+    )
+  }
+
+  // Network icon
+  const NetworkIcon = () => {
+    if (network === "WIFI") return (
+      <svg width="14" height="12" viewBox="0 0 24 20" fill={textColor}>
+        <path d="M1 7.5C5.5 3 10.5 1 12 1s6.5 2 11 6.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <path d="M4.5 11.5C7 9 10 8 12 8s5 1 7.5 3.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <path d="M8 15.5C9.5 14 11 13.5 12 13.5s2.5.5 4 2" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <circle cx="12" cy="19" r="1.5" fill={textColor}/>
+      </svg>
+    )
+    if (network === "OFFLINE") return (
+      <span style={{fontSize:10,color:RED,fontWeight:700}}>✕</span>
+    )
+    // 4G / 3G / 2G bars
+    const bars = network === "4G" ? 4 : network === "3G" ? 3 : 2
+    return (
+      <div style={{display:"flex",alignItems:"flex-end",gap:1.5}}>
+        {[1,2,3,4].map(b=>(
+          <div key={b} style={{
+            width:3,borderRadius:1,
+            height:3+b*2,
+            background:b<=bars?textColor:`${textColor}40`,
+          }}/>
+        ))}
+        <span style={{fontSize:9,fontWeight:700,color:textColor,marginLeft:2}}>{network}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background:bgColor,
+      padding:"8px 16px 6px",
+      display:"flex",justifyContent:"space-between",alignItems:"center",
+      flexShrink:0,
+    }}>
+      <span style={{fontSize:13,fontWeight:700,color:textColor,
+        fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.02em"}}>
+        {time}
+      </span>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <NetworkIcon/>
+        <BatteryIcon/>
+      </div>
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
    ROOT
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function App(){
@@ -2570,19 +2883,8 @@ export default function App(){
         </div>
 
         <div className="phone-frame" style={{position:"relative"}}>
-          {/* Status bar */}
-          <div style={{
-            background:activeTab==="clips"||showAuth?"#000":WHITE,
-            padding:"9px 18px 6px",display:"flex",justifyContent:"space-between",
-            alignItems:"center",flexShrink:0}}>
-            <span style={{fontSize:12,fontWeight:700,
-              color:activeTab==="clips"||showAuth?WHITE:NAVY}}>11:03</span>
-            <div style={{display:"flex",gap:4,alignItems:"center"}}>
-              <span style={{fontSize:11,color:activeTab==="clips"||showAuth?WHITE:NAVY}}>4G ▪▪▪</span>
-              <span style={{fontSize:10,background:GOLD,color:NAVY,
-                padding:"1px 5px",borderRadius:3,fontWeight:800}}>34</span>
-            </div>
-          </div>
+          {/* Status bar — real time, network, battery */}
+          <StatusBar dark={activeTab==="clips"||showAuth}/>
 
           {/* Section header */}
           {hdr&&!showAuth&&(
