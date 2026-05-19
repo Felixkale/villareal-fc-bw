@@ -643,102 +643,100 @@ const CalendarScreen = () => {
         </span>
       </div>
 
-      <div style={{display:"flex",flexDirection:"column",gap:0}}>
+      <div style={{
+        display:"grid",
+        gridTemplateColumns:"repeat(3,1fr)",
+        gap:8,padding:"10px 10px 0",
+      }}>
         {filteredPlayers.map((p,i)=>{
           const age = getAge(p.dob)
           const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()
           const hasPhoto = !!playerPhotos[p.id]
           const isUploading = uploading === p.id
+          const firstName = p.name.split(" ")[0]
+          const lastName  = p.name.split(" ").slice(1).join(" ") || p.name.split(" ")[0]
 
           return (
             <div key={p.id}
               onClick={()=>triggerUpload(p)}
               style={{
-                display:"flex",alignItems:"center",gap:12,
-                padding:"10px 14px",
-                borderBottom:`1px solid #f0f0f0`,
-                background:i%2===0?WHITE:"#fafafa",
-                cursor:"pointer",
+                borderRadius:12,overflow:"hidden",
+                background:WHITE,cursor:"pointer",
+                boxShadow:"0 2px 8px rgba(0,0,0,0.08)",
+                border:`1.5px solid ${hasPhoto?GREEN:"#e5e7eb"}`,
                 WebkitTapHighlightColor:"transparent",
-                opacity:isUploading?0.6:1,
-                transition:"opacity 0.2s",
+                opacity:isUploading?0.7:1,
+                transition:"opacity 0.15s",
               }}>
 
-              {/* Avatar — photo or initials */}
+              {/* Photo area */}
               <div style={{
-                width:56,height:56,borderRadius:10,flexShrink:0,
-                background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-                border:`2px solid ${hasPhoto?GREEN:GOLD}`,
+                height:90,
+                background:`linear-gradient(160deg,${NAVY},#1a3060)`,
                 position:"relative",overflow:"hidden",
                 display:"flex",alignItems:"center",justifyContent:"center",
               }}>
                 {isUploading ? (
-                  <div style={{fontSize:20,animation:"spin 1s linear infinite"}}>⏳</div>
+                  <div style={{fontSize:28}}>⏳</div>
                 ) : hasPhoto ? (
-                  <>
-                    <img
-                      src={playerPhotos[p.id]}
-                      alt={p.name}
-                      style={{width:"100%",height:"100%",objectFit:"cover",
-                        objectPosition:"center top",display:"block"}}
-                      onError={e=>{
-                        e.target.style.display="none"
-                        setPlayerPhotos(prev=>({...prev,[p.id]:null}))
-                      }}
-                    />
-                    {/* Green tick overlay */}
-                    <div style={{position:"absolute",bottom:2,right:2,
-                      background:GREEN,borderRadius:"50%",width:16,height:16,
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:9,color:WHITE,fontWeight:900,border:`1.5px solid ${WHITE}`}}>
-                      ✓
-                    </div>
-                  </>
+                  <img
+                    src={playerPhotos[p.id]}
+                    alt={p.name}
+                    style={{width:"100%",height:"100%",
+                      objectFit:"cover",objectPosition:"center top",display:"block"}}
+                    onError={e=>{
+                      e.target.style.display="none"
+                      setPlayerPhotos(prev=>({...prev,[p.id]:null}))
+                    }}
+                  />
                 ) : (
-                  <>
+                  <div style={{display:"flex",flexDirection:"column",
+                    alignItems:"center",gap:4}}>
                     <span style={{fontFamily:"'Barlow Condensed',sans-serif",
-                      fontWeight:900,fontSize:18,color:GOLD}}>{initials}</span>
-                    {/* Camera icon overlay */}
-                    <div style={{position:"absolute",bottom:2,right:2,
-                      background:GOLD,borderRadius:"50%",width:16,height:16,
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:9,border:`1.5px solid ${WHITE}`}}>
-                      📷
-                    </div>
-                  </>
+                      fontWeight:900,fontSize:26,color:GOLD,lineHeight:1}}>{initials}</span>
+                    <span style={{fontSize:14,opacity:0.6}}>📷</span>
+                  </div>
                 )}
-              </div>
 
-              {/* Player info */}
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
-                  fontWeight:900,fontSize:"clamp(13px,3.5vw,15px)",
-                  color:NAVY,lineHeight:1.1,
-                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                  {p.name}
+                {/* Status badge top-left */}
+                <div style={{position:"absolute",top:5,left:5,
+                  background:hasPhoto?GREEN:"rgba(0,0,0,0.45)",
+                  borderRadius:4,padding:"2px 5px",
+                  fontSize:8,color:WHITE,fontWeight:700,
+                  fontFamily:"'Barlow Condensed',sans-serif"}}>
+                  {isUploading?"⏳":hasPhoto?"✓ PHOTO":"📷 ADD"}
                 </div>
-                <div style={{fontSize:11,color:MGRAY,marginTop:2}}>
-                  {formatDob(p.dob)} · Age {age}
-                </div>
-                <div style={{fontSize:10,color:GOLD2,fontWeight:700,
-                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.04em",
-                  marginTop:1}}>
-                  BFA ID: {p.id}
-                </div>
-              </div>
 
-              {/* Right side — status + team badge */}
-              <div style={{display:"flex",flexDirection:"column",
-                alignItems:"flex-end",gap:5,flexShrink:0}}>
-                <div style={{
+                {/* Team badge top-right */}
+                <div style={{position:"absolute",top:5,right:5,
                   background:p.team==="FIRST TEAM"?NAVY:p.team==="U21"?GREEN:"#e67e22",
-                  color:WHITE,fontSize:9,fontWeight:800,
-                  padding:"3px 7px",borderRadius:4,
-                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em",
-                }}>{p.team}</div>
-                <div style={{fontSize:10,color:hasPhoto?GREEN:MGRAY,fontWeight:600}}>
-                  {isUploading?"uploading...":hasPhoto?"photo ✓":"tap to add"}
+                  borderRadius:4,padding:"2px 5px",
+                  fontSize:7,color:WHITE,fontWeight:800,
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.04em"}}>
+                  {p.team==="FIRST TEAM"?"1ST":p.team}
                 </div>
+              </div>
+
+              {/* Name & info */}
+              <div style={{padding:"7px 8px 8px",background:WHITE}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontSize:9,color:MGRAY,fontWeight:600,lineHeight:1,marginBottom:1,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {firstName}
+                </div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontWeight:900,fontSize:"clamp(11px,3vw,13px)",color:NAVY,
+                  lineHeight:1.1,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {lastName.toUpperCase()}
+                </div>
+                <div style={{fontSize:9,color:GOLD2,fontWeight:700,
+                  fontFamily:"'Barlow Condensed',sans-serif",
+                  marginTop:3,letterSpacing:"0.02em",
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {p.id}
+                </div>
+                <div style={{fontSize:9,color:MGRAY,marginTop:1}}>Age {age}</div>
               </div>
             </div>
           )
@@ -2596,13 +2594,7 @@ export default function App(){
                 <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
                   fontSize:"clamp(16px,5vw,20px)",color:NAVY}}>{hdr}</span>
               </div>
-              {activeTab==="calendar"&&(
-                <button style={{background:LGRAY,border:`1px solid #ddd`,borderRadius:20,
-                  padding:"6px 14px",fontSize:12,fontWeight:700,color:NAVY,cursor:"pointer",
-                  fontFamily:"'Barlow Condensed',sans-serif",minHeight:36}}>
-                  FIRST TEAM ▾
-                </button>
-              )}
+
             </div>
           )}
 
