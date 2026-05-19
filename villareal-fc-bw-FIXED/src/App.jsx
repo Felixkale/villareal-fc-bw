@@ -123,7 +123,9 @@ const NAV_TABS = [
 
 const BottomNav = ({ active, setActive }) => (
   <div style={{ display:"flex", borderTop:`1px solid #e5e5e5`, background:WHITE,
-    paddingBottom:"env(safe-area-inset-bottom, 8px)", paddingTop:6, flexShrink:0 }}>
+    paddingBottom:"env(safe-area-inset-bottom, 8px)", paddingTop:6,
+    flexShrink:0, position:"sticky", bottom:0, zIndex:50,
+    boxShadow:"0 -2px 12px rgba(0,0,0,0.08)" }}>
     {NAV_TABS.map(t => (
       <button key={t.id} onClick={() => setActive(t.id)} style={{
         flex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:2,
@@ -1186,6 +1188,8 @@ export default function App(){
           background:#fff;
           overflow:hidden;
           position:relative;
+          /* Critical: prevents content from pushing nav off screen */
+          min-height:0;
         }
         @media(min-width:520px){
           .app-root{
@@ -1202,6 +1206,18 @@ export default function App(){
             border-radius:38px;
             border:7px solid #1c1c1c;
             box-shadow:0 28px 70px rgba(0,0,0,0.75),inset 0 0 0 1px rgba(255,255,255,0.07);
+          }
+        }
+        /* On real mobile, full height with nav always visible */
+        @media(max-width:519px){
+          .app-root{
+            min-height:100vh;
+            min-height:100dvh;
+          }
+          .phone-frame{
+            flex:1;
+            min-height:0;
+            border-radius:0;
           }
         }
       `}</style>
@@ -1256,7 +1272,7 @@ export default function App(){
             </div>
           )}
 
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
             {renderScreen()}
           </div>
 
