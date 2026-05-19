@@ -31,29 +31,55 @@ const STANDINGS = [
   { pos:16, team:"BUNGU STARS",         p:26,w:1, d:1,l:24, pts:4  },
 ]
 
-const SQUAD = {
-  goalkeepers: [
-    { no:1,  first:"ORATILE",      last:"MOSWEU"   },
-    { no:16, first:"TSHEGOFATSO",  last:"GAOLAPE"  },
-  ],
-  defenders: [
-    { no:2,  first:"KEABETSWE",    last:"PULE"     },
-    { no:3,  first:"LEBOGANG",     last:"SERETSE"  },
-    { no:4,  first:"ONKABETSE",    last:"MOGAPI"   },
-    { no:5,  first:"PHENYO",       last:"RADIBE"   },
-  ],
-  midfielders: [
-    { no:6,  first:"TSHEPO",       last:"KGOSI"    },
-    { no:7,  first:"BALESENG",     last:"MOTLHABI" },
-    { no:8,  first:"GOITSEMODIMO", last:"MOAGI"    },
-    { no:10, first:"OABILE",       last:"TSHOSA"   },
-  ],
-  forwards: [
-    { no:9,  first:"KGOPOTSO",     last:"NTSHELE"  },
-    { no:11, first:"NEO",          last:"MOSEKI"   },
-    { no:17, first:"LEFIKA",       last:"DITLHARE" },
-  ],
-}
+const SQUAD = [
+  // FIRST TEAM (22+)
+  {name:"Buzwani Batsholeng",      dob:"1987-11-11",id:"007100M97",team:"FIRST TEAM"},
+  {name:"Piwane Batsholeng",       dob:"1987-04-05",id:"007357M87",team:"FIRST TEAM"},
+  {name:"Boineelo Better Bofedile",dob:"2000-12-05",id:"031712M00",team:"FIRST TEAM"},
+  {name:"Macdonald Boikanyo",      dob:"2002-01-09",id:"014130M02",team:"FIRST TEAM"},
+  {name:"Koketso Bontsheng",       dob:"2001-12-30",id:"036247M01",team:"FIRST TEAM"},
+  {name:"Gomolemo Dingangano",     dob:"2001-09-22",id:"038579M01",team:"FIRST TEAM"},
+  {name:"Enerst Gabaitumele",      dob:"2001-09-14",id:"031673M01",team:"FIRST TEAM"},
+  {name:"Modiredi Gaboediwe",      dob:"2001-09-18",id:"026788M01",team:"FIRST TEAM"},
+  {name:"Ditsaone Gaeimelwe",      dob:"2003-08-24",id:"031716M03",team:"FIRST TEAM"},
+  {name:"Kagiso George",           dob:"2003-05-20",id:"024975M03",team:"FIRST TEAM"},
+  {name:"Bathobakae Gosetsemang",  dob:"2002-02-19",id:"038598M02",team:"FIRST TEAM"},
+  {name:"Amolemo Kadimo",          dob:"2002-01-06",id:"031670M02",team:"FIRST TEAM"},
+  {name:"Hupaivanda Dennis Kefas", dob:"2001-01-04",id:"005427M01",team:"FIRST TEAM"},
+  {name:"Odirelwe Kereeditse",     dob:"2002-05-02",id:"021333M02",team:"FIRST TEAM"},
+  {name:"Maatla Kereteletswe",     dob:"1999-04-22",id:"038765M99",team:"FIRST TEAM"},
+  {name:"Alson Kgope",             dob:"1999-12-09",id:"029136M99",team:"FIRST TEAM"},
+  {name:"Onneile Lefetamang",      dob:"1999-10-11",id:"007224M99",team:"FIRST TEAM"},
+  {name:"Bosenakitso Lenyatso",    dob:"1998-02-26",id:"025845M98",team:"FIRST TEAM"},
+  {name:"Kgosi Lulane",            dob:"2002-05-29",id:"035314M02",team:"FIRST TEAM"},
+  {name:"Gofamodimo Machangane",   dob:"1990-11-30",id:"021607M90",team:"FIRST TEAM"},
+  {name:"Kefilwe Magono",          dob:"1997-07-27",id:"040402M97",team:"FIRST TEAM"},
+  {name:"Tefho Makobela",          dob:"2001-06-11",id:"040392M01",team:"FIRST TEAM"},
+  {name:"Keoagile Malebogo",       dob:"1999-01-20",id:"040403M99",team:"FIRST TEAM"},
+  {name:"Matlhatsa Matlhatsa",     dob:"1995-01-17",id:"006990M95",team:"FIRST TEAM"},
+  {name:"Pako Moitlhobogi",        dob:"2003-08-07",id:"039042M03",team:"FIRST TEAM"},
+  {name:"Kealeboga Nkinogang",     dob:"2000-04-17",id:"035846M00",team:"FIRST TEAM"},
+  {name:"Mort Pagiwa",             dob:"1998-11-11",id:"013430M98",team:"FIRST TEAM"},
+  {name:"Koketso Sakaio",          dob:"2000-04-12",id:"025831M00",team:"FIRST TEAM"},
+  {name:"Patrick Xhabee",          dob:"1993-05-02",id:"028470M93",team:"FIRST TEAM"},
+  // U21 (18-21)
+  {name:"Ngatangue Daniel",        dob:"2005-08-26",id:"031714M05",team:"U21"},
+  {name:"Kaone Kabelo",            dob:"2006-01-04",id:"036663M06",team:"U21"},
+  {name:"Karabo Michaelson Keikabile",dob:"2007-01-12",id:"018202M07",team:"U21"},
+  {name:"Thabang Kenyaditswe",     dob:"2006-01-05",id:"018828M06",team:"U21"},
+  {name:"Bright Kemo Kesaletseng", dob:"2006-01-07",id:"036661M06",team:"U21"},
+  {name:"Jayson Kgagamedi",        dob:"2006-01-02",id:"033599M06",team:"U21"},
+  {name:"Comfort Moopi Lusha",     dob:"2004-12-23",id:"031715M04",team:"U21"},
+  {name:"Letso Mokwatso",          dob:"2007-01-29",id:"008702M07",team:"U21"},
+  {name:"Mombadi Colin Nengu",     dob:"2004-06-28",id:"033709M04",team:"U21"},
+  {name:"Rankhubu Rankhubu",       dob:"2006-05-21",id:"033707M06",team:"U21"},
+  {name:"Mac Fred Senyashuba",     dob:"2007-03-10",id:"033703M07",team:"U21"},
+  {name:"Emmanuel Virore",         dob:"2007-03-01",id:"034354M07",team:"U21"},
+  // U17 (under 18)
+  {name:"Aniesta Lefa Kgagamedi",  dob:"2008-10-18",id:"036718M08",team:"U17"},
+  {name:"Theo Motlhodi",           dob:"2009-08-07",id:"036662M09",team:"U17"},
+]
+
 
 const MONTHLY_PRICE = 20
 const YEARLY_PRICE  = 200
@@ -513,62 +539,153 @@ const CalendarScreen = () => {
     </div>
   )
 
-  const PlayersTab=()=>{
-    const sections=[
-      {label:"GOALKEEPERS",players:SQUAD.goalkeepers},
-      {label:"DEFENDERS",  players:SQUAD.defenders},
-      {label:"MIDFIELDERS",players:SQUAD.midfielders},
-      {label:"FORWARDS",   players:SQUAD.forwards},
-    ]
-    return (
-      <div style={{overflowY:"auto",flex:1,padding:"8px 12px",WebkitOverflowScrolling:"touch"}}>
-        {sections.map(s=>(
-          <div key={s.label} style={{marginBottom:14}}>
-            <div style={{fontSize:11,fontWeight:800,color:MGRAY,
-              fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em",marginBottom:8}}>
-              {s.label}
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:10}}>
-              {s.players.map(p=>(
-                <div key={p.no} style={{borderRadius:12,overflow:"hidden",
-                  background:`linear-gradient(160deg,${NAVY},#1a3060)`}}>
-                  <div style={{height:86,display:"flex",alignItems:"center",
-                    justifyContent:"center",position:"relative"}}>
-                    <div style={{opacity:0.12,position:"absolute"}}><Logo size={68}/></div>
-                    <svg width="50" height="50" viewBox="0 0 56 56">
-                      <path d="M8 14 L4 24 L16 28 L16 48 L40 48 L40 28 L52 24 L48 14 L36 18 C34 22 22 22 20 18 Z"
-                        fill={GOLD} stroke={NAVY} strokeWidth="1.5"/>
-                    </svg>
-                    <span style={{position:"absolute",fontSize:20,fontWeight:900,
-                      fontFamily:"'Barlow Condensed',sans-serif",color:WHITE,
-                      textShadow:"0 2px 6px rgba(0,0,0,0.5)"}}>{p.no}</span>
-                  </div>
-                  <div style={{background:WHITE,padding:"8px 10px 10px"}}>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:10,color:MGRAY}}>{p.first}</div>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,
-                      fontWeight:900,color:NAVY,lineHeight:1}}>{p.last}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    )
+  const [teamFilter, setTeamFilter] = useState("FIRST TEAM")
+  const [showDropdown, setShowDropdown] = useState(false)
+  const TEAMS = ["FIRST TEAM","U21","U17"]
+
+  const getAge = (dob) => {
+    const today = new Date()
+    const b = new Date(dob)
+    let age = today.getFullYear() - b.getFullYear()
+    const m = today.getMonth() - b.getMonth()
+    if(m < 0 || (m === 0 && today.getDate() < b.getDate())) age--
+    return age
   }
+
+  const formatDob = (dob) => {
+    const d = new Date(dob)
+    return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
+  }
+
+  const filteredPlayers = SQUAD.filter(p => p.team === teamFilter)
+
+  const PlayersTab=()=>(
+    <div style={{flex:1,overflowY:"auto",padding:"0 0 16px",WebkitOverflowScrolling:"touch"}}>
+      <div style={{padding:"10px 12px 8px",
+        borderBottom:`1px solid #eee`,
+        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+          fontSize:13,color:NAVY}}>
+          {filteredPlayers.length} PLAYERS · {teamFilter}
+        </div>
+      </div>
+      <div style={{display:"flex",flexDirection:"column",gap:0}}>
+        {filteredPlayers.map((p,i)=>{
+          const age = getAge(p.dob)
+          const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()
+          return (
+            <div key={p.id} style={{
+              display:"flex",alignItems:"center",gap:12,
+              padding:"10px 14px",
+              borderBottom:`1px solid #f0f0f0`,
+              background:i%2===0?WHITE:"#fafafa",
+            }}>
+              {/* Avatar */}
+              <div style={{
+                width:52,height:52,borderRadius:10,flexShrink:0,
+                background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                border:`2px solid ${GOLD}`,position:"relative",
+              }}>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontWeight:900,fontSize:18,color:GOLD}}>{initials}</span>
+              </div>
+              {/* Info */}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontWeight:900,fontSize:"clamp(13px,3.5vw,15px)",
+                  color:NAVY,lineHeight:1.1,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {p.name}
+                </div>
+                <div style={{fontSize:11,color:MGRAY,marginTop:2}}>
+                  {formatDob(p.dob)} · Age {age}
+                </div>
+                <div style={{fontSize:10,color:GOLD2,fontWeight:700,
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.04em",
+                  marginTop:1}}>
+                  BFA ID: {p.id}
+                </div>
+              </div>
+              {/* Team badge */}
+              <div style={{
+                background:p.team==="FIRST TEAM"?NAVY:p.team==="U21"?GREEN:"#e67e22",
+                color:WHITE,fontSize:9,fontWeight:800,
+                padding:"3px 7px",borderRadius:4,flexShrink:0,
+                fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em",
+              }}>{p.team}</div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+
 
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,overflow:"hidden"}}>
-      <div style={{display:"flex",borderBottom:`1px solid #eee`,padding:"0 14px",gap:14,overflowX:"auto"}}>
-        {["calendar","standings","players"].map(t=>(
-          <button key={t} onClick={()=>setSubTab(t)} style={{
-            background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
-            fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",fontWeight:700,
-            color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
-            borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
-            textTransform:"uppercase",WebkitTapHighlightColor:"transparent",whiteSpace:"nowrap",
-          }}>{t}</button>
-        ))}
+      {/* Sub-tab bar + team dropdown */}
+      <div style={{display:"flex",alignItems:"center",borderBottom:`1px solid #eee`,
+        padding:"0 14px",gap:0,flexShrink:0}}>
+        <div style={{display:"flex",flex:1,gap:14,overflowX:"auto"}}>
+          {["calendar","standings","players"].map(t=>(
+            <button key={t} onClick={()=>setSubTab(t)} style={{
+              background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
+              fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",fontWeight:700,
+              color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
+              borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
+              textTransform:"uppercase",WebkitTapHighlightColor:"transparent",whiteSpace:"nowrap",
+            }}>{t}</button>
+          ))}
+        </div>
+        {/* Team dropdown — only show on Players tab */}
+        {subTab==="players"&&(
+          <div style={{position:"relative",flexShrink:0,marginLeft:8}}>
+            <button
+              onClick={()=>setShowDropdown(d=>!d)}
+              style={{
+                background:NAVY,border:"none",borderRadius:8,
+                padding:"6px 10px",cursor:"pointer",
+                display:"flex",alignItems:"center",gap:5,
+                fontFamily:"'Barlow Condensed',sans-serif",
+                fontWeight:800,fontSize:11,color:WHITE,
+                WebkitTapHighlightColor:"transparent",minHeight:34,
+              }}>
+              {teamFilter} <span style={{fontSize:9}}>{showDropdown?"▲":"▼"}</span>
+            </button>
+            {showDropdown&&(
+              <div style={{
+                position:"absolute",top:"calc(100% + 4px)",right:0,
+                background:WHITE,borderRadius:10,
+                boxShadow:"0 8px 24px rgba(0,0,0,0.15)",
+                border:`1px solid #eee`,
+                zIndex:100,minWidth:130,overflow:"hidden",
+              }}>
+                {TEAMS.map(t=>(
+                  <button key={t} onClick={()=>{setTeamFilter(t);setShowDropdown(false)}}
+                    style={{
+                      display:"block",width:"100%",padding:"12px 16px",
+                      background:teamFilter===t?`${GOLD}22`:WHITE,
+                      border:"none",borderBottom:`1px solid #f0f0f0`,
+                      cursor:"pointer",textAlign:"left",
+                      fontFamily:"'Barlow Condensed',sans-serif",
+                      fontWeight:teamFilter===t?900:600,fontSize:13,
+                      color:teamFilter===t?NAVY:MGRAY,
+                      WebkitTapHighlightColor:"transparent",
+                    }}>
+                    <span style={{marginRight:6}}>
+                      {t==="FIRST TEAM"?"⚽":t==="U21"?"🌟":"🔥"}
+                    </span>
+                    {t}
+                    <span style={{fontSize:10,color:MGRAY,marginLeft:4}}>
+                      ({SQUAD.filter(p=>p.team===t).length})
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {subTab==="calendar"  && <CalGrid/>}
       {subTab==="standings" && <StandingsTab/>}
