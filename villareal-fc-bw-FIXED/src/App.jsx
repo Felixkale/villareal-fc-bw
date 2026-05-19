@@ -237,7 +237,7 @@ const DonateModal = ({ onClose, userEmail }) => {
 /* ══════════════════════════════════════════════════════════════════════════════
    FOR YOU
 ══════════════════════════════════════════════════════════════════════════════ */
-const ForYouScreen = ({ userEmail, goToAuth }) => {
+const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
   const [showDonate, setShowDonate] = useState(false)
   const [news, setNews] = useState([])
   useEffect(()=>{
@@ -262,7 +262,7 @@ const ForYouScreen = ({ userEmail, goToAuth }) => {
             <div style={{fontSize:"clamp(9px,2.5vw,11px)",color:MGRAY}}>BRFA Div 1 · Season 2026/27</div>
           </div>
         </div>
-        <button onClick={goToAuth} style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
+        <button onClick={session?undefined:goToAuth} style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
           background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
           border:`2.5px solid ${NAVY}`,display:"flex",alignItems:"center",justifyContent:"center",
           cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
@@ -620,7 +620,7 @@ const ClipsScreen=()=>{
 /* ══════════════════════════════════════════════════════════════════════════════
    STORE
 ══════════════════════════════════════════════════════════════════════════════ */
-const StoreScreen=({goToAuth,fixtures})=>{
+const StoreScreen=({goToAuth,fixtures,openMembership})=>{
   const [subTab,setSubTab]=useState("membership")
 
   const ShopTab=()=>(
@@ -763,7 +763,11 @@ const StoreScreen=({goToAuth,fixtures})=>{
           ))}
 
           <div style={{marginTop:22}}>
-            <Btn onClick={goToAuth} bg={GOLD} color={NAVY}>
+            <Btn onClick={()=>{
+              // If logged in open membership page directly, else go to auth
+              if(typeof openMembership === 'function') openMembership()
+              else goToAuth()
+            }} bg={GOLD} color={NAVY}>
               JOIN THE HONEY BADGERS →
             </Btn>
           </div>
@@ -1035,7 +1039,8 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
   const isMember=profile?.is_member
 
   return (
-    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
+    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch",
+      scrollBehavior:"smooth"}}>
 
       {/* ── HERO CARD ── */}
       <div style={{
@@ -1113,7 +1118,7 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
       {/* ── UPGRADE BANNER (non-members only) ── */}
       {!isMember&&(
         <div style={{margin:"12px 14px 0"}}>
-          <button onClick={goToAuth} style={{
+          <button onClick={openMembership} style={{
             width:"100%",padding:"14px 16px",
             background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
             border:"none",borderRadius:12,cursor:"pointer",
@@ -1398,7 +1403,11 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
   }
 
   const handleSubmit = async () => {
-    if (!session) { onClose(); return }
+    if (!session) {
+      // Should never happen since we check session before opening, but just in case
+      onClose()
+      return
+    }
     setLoading(true); setError("")
     try {
       // Save membership application to Supabase
@@ -1464,7 +1473,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
 
   /* ── STEP 1: CHOOSE PLAN ── */
   const Step1 = () => (
-    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",minHeight:0}}>
       <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
         padding:"20px 20px 16px",textAlign:"center"}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
@@ -2070,14 +2079,14 @@ export default function App(){
       onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}}
       onGuest={()=>setShowAuth(false)}/>
     switch(activeTab){
-      case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth}/>
+      case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
       case "calendar": return <CalendarScreen/>
       case "clips":    return <ClipsScreen/>
-      case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures}/>
+      case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)}/>
       case "profile":  return <ProfileScreen session={session} profile={profile}
                          onLogout={handleLogout} goToAuth={goToAuth}
                          openMembership={()=>setShowMembership(true)}/>
-      default:         return <ForYouScreen goToAuth={goToAuth}/>
+      default:         return <ForYouScreen goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
     }
   }
 
