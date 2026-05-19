@@ -1009,10 +1009,10 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
   ]
 
   const settings=[
-    {icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z", label:"Personal Information"},
-    {icon:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0", label:"Notification Settings"},
-    {icon:"M12 2a10 10 0 100 20A10 10 0 0012 2z M8 12h8 M12 8v8", label:"Cookie Settings"},
-    {icon:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z", label:"Are you a member?"},
+    {icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z", label:"Personal Information", action:null},
+    {icon:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0", label:"Notification Settings", action:null},
+    {icon:"M12 2a10 10 0 100 20A10 10 0 0012 2z M8 12h8 M12 8v8", label:"Cookie Settings", action:null},
+    {icon:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z", label:"Are you a member? →", action:openMembership},
   ]
 
   /* ── NOT LOGGED IN ── */
@@ -1211,16 +1211,22 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
             fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>SETTINGS</div>
         </div>
         {settings.map((s,i)=>(
-          <div key={i} onClick={s.action||undefined} style={{display:"flex",alignItems:"center",gap:14,
+          <div key={i}
+            onClick={()=>{ if(s.action) s.action() }}
+            style={{display:"flex",alignItems:"center",gap:14,
             padding:"14px 14px",minHeight:52,
             borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
-            cursor:s.action?"pointer":"default"}}>
+            cursor:s.action?"pointer":"default",
+            background:s.action?"transparent":"transparent",
+            WebkitTapHighlightColor:"transparent"}}>
             <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
               background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <Ico d={s.icon} stroke={NAVY} sw={1.6} size={18}/>
             </div>
-            <span style={{flex:1,fontSize:14,color:NAVY,fontWeight:500}}>{s.label}</span>
-            <span style={{color:"#ccc",fontSize:18}}>›</span>
+            <span style={{flex:1,fontSize:14,
+              color:s.action?NAVY:NAVY,
+              fontWeight:s.action?700:500}}>{s.label}</span>
+            <span style={{color:s.action?GOLD2:"#ccc",fontSize:18,fontWeight:s.action?700:400}}>›</span>
           </div>
         ))}
       </div>
@@ -2112,14 +2118,15 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
   const isDone = step === totalSteps + 1
 
   return (
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",
-      zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+    <div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",
+      height:"100%",width:"100%"}}>
       <div style={{
-        background:WHITE,width:"100%",maxWidth:480,
-        height:"94dvh",height:"94vh",
+        background:WHITE,width:"100%",
+        height:"92%",
         borderRadius:"22px 22px 0 0",
         display:"flex",flexDirection:"column",
         overflow:"hidden",
+        boxShadow:"0 -8px 32px rgba(0,0,0,0.3)",
       }}>
         {/* Modal header */}
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
@@ -2313,7 +2320,7 @@ export default function App(){
           </div>
         </div>
 
-        <div className="phone-frame">
+        <div className="phone-frame" style={{position:"relative"}}>
           {/* Status bar */}
           <div style={{
             background:activeTab==="clips"||showAuth?"#000":WHITE,
@@ -2358,18 +2365,24 @@ export default function App(){
             paddingBottom:4,paddingTop:3,display:"flex",justifyContent:"center",flexShrink:0}}>
             <div style={{width:110,height:4,background:"#ddd",borderRadius:2}}/>
           </div>
-        </div>
 
-        {showMembership&&(
-          <MembershipPage
-            session={session}
-            onClose={()=>setShowMembership(false)}
-            onSuccess={()=>{
-              setShowMembership(false)
-              setActiveTab("profile")
-            }}
-          />
-        )}
+          {/* Membership modal — inside phone frame, slides over content, nav stays visible */}
+          {showMembership&&(
+            <div style={{position:"absolute",inset:0,zIndex:200,
+              display:"flex",flexDirection:"column",
+              background:"rgba(0,0,0,0.6)",
+              borderRadius:"inherit"}}>
+              <MembershipPage
+                session={session}
+                onClose={()=>setShowMembership(false)}
+                onSuccess={()=>{
+                  setShowMembership(false)
+                  setActiveTab("profile")
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <div style={{textAlign:"center",padding:"10px 0 0",display:"none"}}
           className="desktop-footer">
