@@ -85,7 +85,7 @@ const Pill = ({ label, bg = GOLD, color = NAVY, small }) => (
   }}>{label}</span>
 )
 
-const Btn = ({ children, onClick, bg=GOLD, color=NAVY, disabled, style:sx={} }) => (
+const Btn = ({ children, onClick, bg=GOLD, color=NAVY, disabled, style:sx={}, sx:sxExtra={} }) => (
   <button onClick={onClick} disabled={disabled} style={{
     width:"100%", padding:"14px", background:disabled?"#ccc":bg,
     border:"none", borderRadius:12, cursor:disabled?"not-allowed":"pointer",
@@ -970,7 +970,7 @@ const AuthScreen=({onSuccess,onGuest})=>{
 /* ══════════════════════════════════════════════════════════════════════════════
    PROFILE
 ══════════════════════════════════════════════════════════════════════════════ */
-const ProfileScreen=({session,profile,onLogout,goToAuth})=>{
+const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
   const benefits=[
     {
       title:"EARLY ACCESS TO TICKETS",
@@ -1206,10 +1206,10 @@ const ProfileScreen=({session,profile,onLogout,goToAuth})=>{
             fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>SETTINGS</div>
         </div>
         {settings.map((s,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:14,
+          <div key={i} onClick={s.action||undefined} style={{display:"flex",alignItems:"center",gap:14,
             padding:"14px 14px",minHeight:52,
             borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
-            cursor:"pointer"}}>
+            cursor:s.action?"pointer":"default"}}>
             <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
               background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <Ico d={s.icon} stroke={NAVY} sw={1.6} size={18}/>
@@ -1259,6 +1259,753 @@ const ProfileScreen=({session,profile,onLogout,goToAuth})=>{
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
+   MEMBERSHIP PAGE — 3 tiers, age pricing, ID verification
+══════════════════════════════════════════════════════════════════════════════ */
+
+const PLANS = [
+  {
+    id: "free",
+    name: "PREMIUM FREE",
+    emoji: "🆓",
+    color: "#4a5568",
+    colorLight: "#f7f8fa",
+    border: "#e2e8f0",
+    prices: { adult_monthly:0, adult_yearly:0, youth_monthly:0, youth_yearly:0, infant:0 },
+    benefits: [
+      "Club news & match updates",
+      "Access to fixtures & standings",
+      "Clips & highlights",
+      "Early store notifications",
+    ],
+    cta: "JOIN FREE",
+    popular: false,
+  },
+  {
+    id: "global_fan",
+    name: "GLOBAL FAN",
+    emoji: "🌍",
+    color: NAVY,
+    colorLight: "#eef1f8",
+    border: NAVY,
+    prices: { adult_monthly:20, adult_yearly:200, youth_monthly:15, youth_yearly:150, infant:0 },
+    benefits: [
+      "Everything in Free",
+      "10% off match-day tickets",
+      "5% off official store",
+      "Early ticket access",
+      "Exclusive kit number",
+      "Priority squad updates",
+    ],
+    cta: "JOIN GLOBAL FAN",
+    popular: true,
+  },
+  {
+    id: "honey_badger",
+    name: "HONEY BADGER",
+    emoji: "🦡",
+    color: GOLD2,
+    colorLight: "#fffbea",
+    border: GOLD,
+    prices: { adult_monthly:50, adult_yearly:500, youth_monthly:null, youth_yearly:null, infant:null },
+    adultsOnly: true,
+    benefits: [
+      "Everything in Global Fan",
+      "20% off match-day tickets",
+      "10% off official store",
+      "Exclusive 48hr pre-sale",
+      "Digital membership card",
+      "Vote in club decisions",
+      "Exclusive member events",
+      "Free entry to home matches",
+    ],
+    cta: "JOIN HONEY BADGER",
+    popular: false,
+  },
+]
+
+const AGE_GROUPS = [
+  { id:"infant",  label:"Infant (0–5)",   desc:"Free on all plans" },
+  { id:"youth",   label:"Youth (6–17)",   desc:"P15/month on paid plans" },
+  { id:"adult",   label:"Adult (18+)",    desc:"Standard pricing" },
+]
+
+const ID_TYPES = [
+  { id:"omang",    label:"Omang (National ID)", sides:1, icon:"🪪" },
+  { id:"passport", label:"Passport",            sides:1, icon:"📗" },
+  { id:"license",  label:"Driver's License",    sides:2, icon:"🚗" },
+]
+
+const MembershipPage = ({ session, onClose, onSuccess }) => {
+  const [step,      setStep]      = useState(1)  // 1=plans, 2=age, 3=details, 4=verify, 5=done
+  const [plan,      setPlan]      = useState(null)
+  const [billing,   setBilling]   = useState("monthly")
+  const [ageGroup,  setAgeGroup]  = useState(null)
+  const [dob,       setDob]       = useState("")
+  const [fullName,  setFullName]  = useState("")
+  const [idType,    setIdType]    = useState(null)
+  const [idFront,   setIdFront]   = useState(null)
+  const [idBack,    setIdBack]    = useState(null)
+  const [selfie,    setSelfie]    = useState(null)
+  const [loading,   setLoading]   = useState(false)
+  const [error,     setError]     = useState("")
+
+  const needsVerification = ageGroup === "adult"
+  const selectedPlan = PLANS.find(p => p.id === plan)
+
+  const getPrice = (p) => {
+    if (!p) return 0
+    if (ageGroup === "infant") return 0
+    const key = `${ageGroup||"adult"}_${billing}`
+    return p.prices[key] || 0
+  }
+
+  const getYearlySavings = (p) => {
+    if (!p || ageGroup === "infant") return 0
+    const monthly = p.prices[`${ageGroup||"adult"}_monthly`]
+    const yearly  = p.prices[`${ageGroup||"adult"}_yearly`]
+    return monthly * 12 - yearly
+  }
+
+  // Camera capture helper
+  const capturePhoto = (setter) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
+    input.capture = "environment"
+    input.onchange = e => {
+      const file = e.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = ev => setter(ev.target.result)
+      reader.readAsDataURL(file)
+    }
+    input.click()
+  }
+
+  const captureSelfie = (setter) => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = "image/*"
+    input.capture = "user"
+    input.onchange = e => {
+      const file = e.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = ev => setter(ev.target.result)
+      reader.readAsDataURL(file)
+    }
+    input.click()
+  }
+
+  const handleSubmit = async () => {
+    if (!session) { onClose(); return }
+    setLoading(true); setError("")
+    try {
+      // Save membership application to Supabase
+      const { error: err } = await supabase.from("membership_applications").insert({
+        user_id:        session.user.id,
+        email:          session.user.email,
+        full_name:      fullName || session.user.email,
+        plan_id:        plan,
+        billing_cycle:  billing,
+        age_group:      ageGroup,
+        dob:            dob || null,
+        id_type:        idType,
+        id_front_url:   idFront ? "uploaded" : null,
+        id_back_url:    idBack  ? "uploaded" : null,
+        selfie_url:     selfie  ? "uploaded" : null,
+        status:         needsVerification ? "pending" : "active",
+        created_at:     new Date().toISOString(),
+      })
+      if (err) throw err
+
+      // Update profile membership status
+      await supabase.from("profiles").update({
+        is_member:     plan !== "free",
+        billing_cycle: billing,
+        member_since:  new Date().toISOString(),
+      }).eq("id", session.user.id)
+
+      setStep(5)
+      if (onSuccess) onSuccess()
+    } catch(e) {
+      setError(e.message || "Something went wrong. Please try again.")
+    }
+    setLoading(false)
+  }
+
+  /* ── STEP INDICATOR ── */
+  const StepBar = () => (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+      gap:6,padding:"12px 20px",background:"#f8f9fb",borderBottom:`1px solid #eee`}}>
+      {[1,2,3,needsVerification?4:null,needsVerification?5:4].filter(Boolean).map((s,i,arr)=>(
+        <div key={s} style={{display:"flex",alignItems:"center",gap:6}}>
+          <div style={{
+            width:28,height:28,borderRadius:"50%",
+            background:step>=s?NAVY:"#e5e7eb",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            transition:"background 0.2s",
+          }}>
+            <span style={{fontSize:12,fontWeight:800,
+              color:step>=s?WHITE:MGRAY,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>
+              {step>s?"✓":s}
+            </span>
+          </div>
+          {i<arr.length-1&&(
+            <div style={{width:20,height:2,
+              background:step>s?NAVY:"#e5e7eb",
+              borderRadius:1,transition:"background 0.2s"}}/>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  /* ── STEP 1: CHOOSE PLAN ── */
+  const Step1 = () => (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+      <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+        padding:"20px 20px 16px",textAlign:"center"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:26,color:WHITE}}>CHOOSE YOUR PLAN</div>
+        <div style={{fontSize:12,color:"#aab4cc",marginTop:4}}>
+          Villareal FC "The Yellow Submarine" · Season 2026/27
+        </div>
+        {/* Billing toggle */}
+        <div style={{display:"flex",background:"rgba(255,255,255,0.1)",
+          borderRadius:10,padding:3,marginTop:14,maxWidth:280,margin:"14px auto 0"}}>
+          {["monthly","yearly"].map(b=>(
+            <button key={b} onClick={()=>setBilling(b)} style={{
+              flex:1,padding:"8px 0",minHeight:38,
+              background:billing===b?WHITE:"none",
+              border:"none",borderRadius:8,cursor:"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:12,color:billing===b?NAVY:"#aaa",
+              WebkitTapHighlightColor:"transparent",
+              display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+              {b.toUpperCase()}
+              {b==="yearly"&&<span style={{background:GREEN,color:WHITE,fontSize:8,
+                fontWeight:900,padding:"1px 4px",borderRadius:3}}>-17%</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{padding:"16px 14px 24px",display:"flex",flexDirection:"column",gap:12}}>
+        {PLANS.map(p=>(
+          <div key={p.id} onClick={()=>setPlan(p.id)} style={{
+            borderRadius:16,overflow:"hidden",
+            border:`2px solid ${plan===p.id?p.border:"#e5e7eb"}`,
+            background:plan===p.id?p.colorLight:WHITE,
+            cursor:"pointer",WebkitTapHighlightColor:"transparent",
+            boxShadow:plan===p.id?`0 4px 20px rgba(0,0,0,0.12)`:"0 1px 4px rgba(0,0,0,0.06)",
+            transition:"all 0.2s",position:"relative",
+          }}>
+            {p.popular&&(
+              <div style={{position:"absolute",top:12,right:12,
+                background:GOLD,color:NAVY,fontSize:9,fontWeight:900,
+                padding:"2px 8px",borderRadius:20,
+                fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em"}}>
+                MOST POPULAR
+              </div>
+            )}
+            {/* Plan header */}
+            <div style={{padding:"16px 16px 12px",
+              borderBottom:`1px solid ${plan===p.id?p.border+"44":"#f0f0f0"}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                <span style={{fontSize:24}}>{p.emoji}</span>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontWeight:900,fontSize:18,color:plan===p.id?p.color:NAVY}}>
+                  {p.name}
+                </div>
+                {plan===p.id&&(
+                  <div style={{marginLeft:"auto",width:22,height:22,borderRadius:"50%",
+                    background:p.color,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <span style={{color:WHITE,fontSize:12}}>✓</span>
+                  </div>
+                )}
+              </div>
+              {/* Price */}
+              <div style={{display:"flex",alignItems:"baseline",gap:4}}>
+                {p.prices.adult_monthly===0?(
+                  <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:900,fontSize:28,color:GREEN}}>FREE</span>
+                ):(
+                  <>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                      fontWeight:900,fontSize:28,color:p.color}}>
+                      P{billing==="monthly"?p.prices.adult_monthly:p.prices.adult_yearly}
+                    </span>
+                    <span style={{fontSize:12,color:MGRAY}}>
+                      /{billing==="monthly"?"mo":"yr"}
+                    </span>
+                    {billing==="yearly"&&getYearlySavings(p)>0&&(
+                      <span style={{background:"#dcfce7",color:GREEN,fontSize:10,
+                        fontWeight:700,padding:"1px 6px",borderRadius:4,marginLeft:4}}>
+                        Save P{getYearlySavings(p)}
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+              <div style={{fontSize:11,color:MGRAY,marginTop:2}}>
+                {p.adultsOnly
+                  ? <span style={{color:RED,fontWeight:700}}>⚠ Adults 18+ only · ID verification required</span>
+                  : <>Youth (6-17): {p.prices.youth_monthly===0?"Free":`P${billing==="monthly"?p.prices.youth_monthly:p.prices.youth_yearly}/${billing==="monthly"?"mo":"yr"}`}{" · "}Infant (0-5): Free</>
+                }
+              </div>
+            </div>
+            {/* Benefits */}
+            <div style={{padding:"10px 16px 14px"}}>
+              {p.benefits.map((b,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",gap:8,
+                  padding:"4px 0",borderBottom:i<p.benefits.length-1?`1px solid #f8f8f8`:"none"}}>
+                  <span style={{color:p.color,fontSize:13,flexShrink:0}}>✔</span>
+                  <span style={{fontSize:13,color:"#444",lineHeight:1.3}}>{b}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{padding:"0 14px 24px"}}>
+        <Btn onClick={()=>{ if(plan) setStep(2) }}
+          disabled={!plan} bg={plan?NAVY:null}>
+          CONTINUE →
+        </Btn>
+      </div>
+    </div>
+  )
+
+  /* ── STEP 2: AGE GROUP ── */
+  const Step2 = () => {
+    // Auto-select adult if Honey Badger (adults only plan)
+    useEffect(()=>{
+      if(selectedPlan?.adultsOnly && ageGroup !== "adult") {
+        setAgeGroup("adult")
+      }
+    },[])
+
+    return (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",
+      padding:"20px 14px"}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+        fontSize:22,color:NAVY,marginBottom:4}}>SELECT AGE GROUP</div>
+      <div style={{fontSize:13,color:MGRAY,marginBottom:selectedPlan?.adultsOnly?12:20,lineHeight:1.6}}>
+        Pricing is based on the member's age. Under 16s don't need ID verification.
+      </div>
+      {selectedPlan?.adultsOnly&&(
+        <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:10,
+          padding:"12px 14px",marginBottom:16,
+          display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20,flexShrink:0}}>🦡</span>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:13,color:RED,marginBottom:2}}>HONEY BADGER — ADULTS ONLY</div>
+            <div style={{fontSize:12,color:"#7f1d1d",lineHeight:1.5}}>
+              This plan is exclusively for members aged 18 and above.
+              ID verification is mandatory.
+            </div>
+          </div>
+        </div>
+      )}
+      <div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:24}}>
+        {AGE_GROUPS.map(ag=>{
+          const isHB = selectedPlan?.adultsOnly
+          const locked = isHB && ag.id !== "adult"
+          return (
+          <div key={ag.id} onClick={()=>{ if(!locked) setAgeGroup(ag.id) }} style={{
+            padding:"16px",borderRadius:14,
+            cursor:locked?"not-allowed":"pointer",
+            border:`2px solid ${ageGroup===ag.id?NAVY:locked?"#f0f0f0":"#e5e7eb"}`,
+            background:ageGroup===ag.id?"#eef1f8":locked?"#fafafa":WHITE,
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+            WebkitTapHighlightColor:"transparent",
+            opacity:locked?0.45:1,
+          }}>
+            <div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:16,color:locked?MGRAY:NAVY}}>
+                {ag.label}
+                {locked&&<span style={{fontSize:11,color:RED,marginLeft:6,fontWeight:700}}>
+                  NOT AVAILABLE
+                </span>}
+              </div>
+              <div style={{fontSize:12,color:MGRAY,marginTop:2}}>
+                {locked?"Honey Badger is for Adults 18+ only":ag.desc}
+              </div>
+            </div>
+            <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
+              border:`2px solid ${ageGroup===ag.id?NAVY:"#ddd"}`,
+              background:ageGroup===ag.id?NAVY:"none",
+              display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {ageGroup===ag.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
+              {locked&&<span style={{color:"#ddd",fontSize:14}}>✕</span>}
+            </div>
+          </div>
+          )
+        })}
+      </div>
+      {/* Price summary */}
+      {ageGroup&&selectedPlan&&(
+        <div style={{background:"#f8f9fb",borderRadius:12,padding:"14px 16px",
+          marginBottom:20,border:`1px solid #e5e7eb`}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:12,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+            YOUR PRICE SUMMARY
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:14,color:NAVY,fontWeight:600}}>
+              {selectedPlan.name} · {AGE_GROUPS.find(a=>a.id===ageGroup)?.label}
+            </span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:20,color:getPrice(selectedPlan)===0?GREEN:NAVY}}>
+              {getPrice(selectedPlan)===0?"FREE":`P${getPrice(selectedPlan)}/${billing==="monthly"?"mo":"yr"}`}
+            </span>
+          </div>
+          {billing==="yearly"&&getYearlySavings(selectedPlan)>0&&(
+            <div style={{fontSize:12,color:GREEN,marginTop:4,fontWeight:600}}>
+              You save P{getYearlySavings(selectedPlan)} vs monthly billing
+            </div>
+          )}
+        </div>
+      )}
+      <div style={{display:"flex",gap:10}}>
+        <Btn onClick={()=>setStep(1)} bg={"#f0f0f0"} color={NAVY}
+          sx={{flex:1}}>← BACK</Btn>
+        <Btn onClick={()=>{ if(ageGroup) setStep(3) }}
+          disabled={!ageGroup} bg={ageGroup?NAVY:null}
+          sx={{flex:2}}>CONTINUE →</Btn>
+      </div>
+    </div>
+    )
+  }
+
+  /* ── STEP 3: PERSONAL DETAILS ── */
+  const Step3 = () => (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",
+      padding:"20px 14px"}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+        fontSize:22,color:NAVY,marginBottom:4}}>YOUR DETAILS</div>
+      <div style={{fontSize:13,color:MGRAY,marginBottom:20,lineHeight:1.6}}>
+        {needsVerification
+          ? "Adults (18+) must verify their identity. Fill in your details below."
+          : "Almost done! Confirm your details to complete registration."}
+      </div>
+
+      <Field label="FULL NAME" placeholder="As it appears on your ID"
+        value={fullName} onChange={e=>setFullName(e.target.value)}/>
+      <Field label="DATE OF BIRTH" type="date"
+        value={dob} onChange={e=>setDob(e.target.value)}/>
+      <Field label="EMAIL" type="email"
+        value={session?.user?.email||""} disabled
+        style={{background:"#f8f9fb",color:MGRAY}}/>
+
+      {needsVerification&&(
+        <>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8,marginTop:4}}>
+            ID DOCUMENT TYPE
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+            {ID_TYPES.map(t=>(
+              <div key={t.id} onClick={()=>setIdType(t.id)} style={{
+                padding:"14px 16px",borderRadius:12,cursor:"pointer",
+                border:`2px solid ${idType===t.id?NAVY:"#e5e7eb"}`,
+                background:idType===t.id?"#eef1f8":WHITE,
+                display:"flex",alignItems:"center",gap:12,
+                WebkitTapHighlightColor:"transparent",
+              }}>
+                <span style={{fontSize:22}}>{t.icon}</span>
+                <div style={{flex:1}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:800,fontSize:15,color:NAVY}}>{t.label}</div>
+                  <div style={{fontSize:11,color:MGRAY,marginTop:1}}>
+                    {t.sides===2?"Requires front & back photos":"Requires front photo only"}
+                  </div>
+                </div>
+                <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
+                  border:`2px solid ${idType===t.id?NAVY:"#ddd"}`,
+                  background:idType===t.id?NAVY:"none",
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  {idType===t.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {error&&(
+        <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
+          padding:"10px 14px",color:RED,fontSize:13,marginBottom:14,fontWeight:600}}>
+          {error}
+        </div>
+      )}
+
+      <div style={{display:"flex",gap:10}}>
+        <Btn onClick={()=>setStep(2)} bg={"#f0f0f0"} color={NAVY} sx={{flex:1}}>← BACK</Btn>
+        <Btn onClick={()=>{
+          if(!fullName.trim()) { setError("Please enter your full name."); return }
+          if(!dob) { setError("Please enter your date of birth."); return }
+          if(needsVerification&&!idType) { setError("Please select an ID type."); return }
+          setError("")
+          needsVerification ? setStep(4) : handleSubmit()
+        }} bg={NAVY} sx={{flex:2}} disabled={loading}>
+          {needsVerification?"NEXT: VERIFY ID →":"COMPLETE →"}
+        </Btn>
+      </div>
+    </div>
+  )
+
+  /* ── STEP 4: ID VERIFICATION ── */
+  const Step4 = () => {
+    const selectedId = ID_TYPES.find(t=>t.id===idType)
+    const isComplete = idFront && selfie && (selectedId?.sides===1 || idBack)
+
+    return (
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",
+        padding:"20px 14px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:22,color:NAVY,marginBottom:4}}>VERIFY YOUR IDENTITY</div>
+        <div style={{fontSize:13,color:MGRAY,marginBottom:20,lineHeight:1.6}}>
+          Your documents are encrypted and only used for membership verification.
+          An admin will review and approve within 24–48 hours.
+        </div>
+
+        {/* Security badge */}
+        <div style={{background:"#eef1f8",borderRadius:10,padding:"10px 14px",
+          marginBottom:18,display:"flex",alignItems:"center",gap:10,
+          border:`1px solid #d0d8f0`}}>
+          <span style={{fontSize:20}}>🔒</span>
+          <div style={{fontSize:12,color:NAVY,lineHeight:1.5}}>
+            <strong>Secure & Private</strong> — Documents are reviewed by Villareal FC admin only.
+            Never shared with third parties.
+          </div>
+        </div>
+
+        {/* ID Front */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+            {selectedId?.emoji} {selectedId?.label?.toUpperCase()} — FRONT
+          </div>
+          {idFront?(
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+              border:`2px solid ${GREEN}`}}>
+              <img src={idFront} alt="ID Front"
+                style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
+              <div style={{position:"absolute",top:8,right:8,background:GREEN,
+                borderRadius:20,padding:"3px 10px",fontSize:11,color:WHITE,fontWeight:700}}>
+                ✓ Captured
+              </div>
+              <button onClick={()=>setIdFront(null)}
+                style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.6)",
+                  border:"none",borderRadius:20,padding:"3px 10px",fontSize:11,
+                  color:WHITE,cursor:"pointer"}}>Retake</button>
+            </div>
+          ):(
+            <button onClick={()=>capturePhoto(setIdFront)} style={{
+              width:"100%",height:120,borderRadius:12,
+              border:`2px dashed ${NAVY}`,background:"#f8f9fb",
+              display:"flex",flexDirection:"column",alignItems:"center",
+              justifyContent:"center",gap:8,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:32}}>📷</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:13,color:NAVY}}>TAP TO CAPTURE FRONT</span>
+              <span style={{fontSize:11,color:MGRAY}}>
+                Make sure all text is clearly visible
+              </span>
+            </button>
+          )}
+        </div>
+
+        {/* ID Back (Driver's License only) */}
+        {selectedId?.sides===2&&(
+          <div style={{marginBottom:14}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+              {selectedId?.emoji} {selectedId?.label?.toUpperCase()} — BACK
+            </div>
+            {idBack?(
+              <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+                border:`2px solid ${GREEN}`}}>
+                <img src={idBack} alt="ID Back"
+                  style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
+                <div style={{position:"absolute",top:8,right:8,background:GREEN,
+                  borderRadius:20,padding:"3px 10px",fontSize:11,color:WHITE,fontWeight:700}}>
+                  ✓ Captured
+                </div>
+                <button onClick={()=>setIdBack(null)}
+                  style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.6)",
+                    border:"none",borderRadius:20,padding:"3px 10px",fontSize:11,
+                    color:WHITE,cursor:"pointer"}}>Retake</button>
+              </div>
+            ):(
+              <button onClick={()=>capturePhoto(setIdBack)} style={{
+                width:"100%",height:120,borderRadius:12,
+                border:`2px dashed ${NAVY}`,background:"#f8f9fb",
+                display:"flex",flexDirection:"column",alignItems:"center",
+                justifyContent:"center",gap:8,cursor:"pointer",
+                WebkitTapHighlightColor:"transparent"}}>
+                <span style={{fontSize:32}}>📷</span>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                  fontSize:13,color:NAVY}}>TAP TO CAPTURE BACK</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Selfie */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+            🤳 SELFIE — FACE VERIFICATION
+          </div>
+          <div style={{background:"#fffbea",borderRadius:10,padding:"10px 14px",
+            marginBottom:8,border:`1px solid #fde68a`,fontSize:12,color:"#92400e",
+            lineHeight:1.5}}>
+            📌 Remove glasses, face camera directly, ensure good lighting.
+          </div>
+          {selfie?(
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+              border:`2px solid ${GREEN}`}}>
+              <img src={selfie} alt="Selfie"
+                style={{width:"100%",height:200,objectFit:"cover",display:"block"}}/>
+              <div style={{position:"absolute",top:8,right:8,background:GREEN,
+                borderRadius:20,padding:"3px 10px",fontSize:11,color:WHITE,fontWeight:700}}>
+                ✓ Captured
+              </div>
+              <button onClick={()=>setSelfie(null)}
+                style={{position:"absolute",top:8,left:8,background:"rgba(0,0,0,0.6)",
+                  border:"none",borderRadius:20,padding:"3px 10px",fontSize:11,
+                  color:WHITE,cursor:"pointer"}}>Retake</button>
+            </div>
+          ):(
+            <button onClick={()=>captureSelfie(setSelfie)} style={{
+              width:"100%",height:150,borderRadius:12,
+              border:`2px dashed ${GOLD2}`,background:"#fffbea",
+              display:"flex",flexDirection:"column",alignItems:"center",
+              justifyContent:"center",gap:8,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:36}}>🤳</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:13,color:NAVY}}>TAP TO TAKE SELFIE</span>
+              <span style={{fontSize:11,color:MGRAY}}>Use front camera</span>
+            </button>
+          )}
+        </div>
+
+        {error&&(
+          <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
+            padding:"10px 14px",color:RED,fontSize:13,marginBottom:14,fontWeight:600}}>
+            {error}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10}}>
+          <Btn onClick={()=>setStep(3)} bg={"#f0f0f0"} color={NAVY} sx={{flex:1}}>← BACK</Btn>
+          <Btn onClick={()=>{
+            if(!idFront) { setError("Please capture your ID front photo."); return }
+            if(selectedId?.sides===2&&!idBack) { setError("Please capture your ID back photo."); return }
+            if(!selfie) { setError("Please take a selfie for verification."); return }
+            setError("")
+            handleSubmit()
+          }} bg={isComplete?NAVY:"#ccc"} disabled={loading||!isComplete} sx={{flex:2}}>
+            {loading?"SUBMITTING...":"SUBMIT FOR REVIEW →"}
+          </Btn>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── STEP 5: SUCCESS ── */
+  const Step5 = () => (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+      justifyContent:"center",padding:"32px 24px",textAlign:"center",
+      background:WHITE}}>
+      <div style={{width:80,height:80,borderRadius:"50%",background:"#dcfce7",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        marginBottom:16,fontSize:40}}>
+        {needsVerification?"⏳":"🎉"}
+      </div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+        fontSize:26,color:NAVY,marginBottom:8}}>
+        {needsVerification?"APPLICATION SUBMITTED!":"WELCOME TO THE FAMILY!"}
+      </div>
+      <div style={{fontSize:14,color:MGRAY,lineHeight:1.7,marginBottom:28,maxWidth:300}}>
+        {needsVerification
+          ? "Your identity verification is under review. You'll receive an email within 24–48 hours once approved. Some features are available immediately."
+          : `You're now a ${selectedPlan?.name} member! Welcome to Villareal FC 🦡⚽`}
+      </div>
+      {needsVerification&&(
+        <div style={{background:"#fffbea",border:`1px solid #fde68a`,borderRadius:12,
+          padding:"14px 16px",marginBottom:24,textAlign:"left",width:"100%",maxWidth:320}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:12,color:"#92400e",marginBottom:8}}>WHAT HAPPENS NEXT</div>
+          {["Admin reviews your documents (24–48hrs)",
+            "You receive an approval email",
+            "Full membership benefits unlock",
+            "Your digital membership card is issued"].map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:6}}>
+              <span style={{color:GOLD2,fontWeight:800,flexShrink:0}}>{i+1}.</span>
+              <span style={{fontSize:12,color:"#78350f"}}>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <Btn onClick={onClose}>
+        {needsVerification?"GO TO MY PROFILE":"START EXPLORING 🟡"}
+      </Btn>
+    </div>
+  )
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.85)",
+      zIndex:500,display:"flex",alignItems:"flex-end",justifyContent:"center"}}>
+      <div style={{
+        background:WHITE,
+        width:"100%",maxWidth:480,
+        height:"92vh",
+        borderRadius:"22px 22px 0 0",
+        display:"flex",flexDirection:"column",
+        overflow:"hidden",
+      }}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"16px 18px 12px",borderBottom:`1px solid #eee`,flexShrink:0,
+          background:WHITE}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <Logo size={28}/>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:16,color:NAVY}}>MEMBERSHIP</div>
+          </div>
+          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",
+            width:32,height:32,borderRadius:"50%",cursor:"pointer",
+            fontSize:16,color:MGRAY,WebkitTapHighlightColor:"transparent",
+            display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+        </div>
+
+        {step<5&&<StepBar/>}
+
+        {/* Content */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
+          {step===1&&<Step1/>}
+          {step===2&&<Step2/>}
+          {step===3&&<Step3/>}
+          {step===4&&<Step4/>}
+          {step===5&&<Step5/>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
    ROOT
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function App(){
@@ -1268,6 +2015,7 @@ export default function App(){
   const [showAuth, setShowAuth] =useState(false)
   const [fixtures, setFixtures] =useState([])
   const [booting,  setBooting]  =useState(true)
+  const [showMembership,setShowMembership]=useState(false)
 
   useEffect(()=>{
     // Handle email confirmation redirect — Supabase puts token in URL hash
@@ -1317,6 +2065,7 @@ export default function App(){
   const hdr=HEADER_LABELS[activeTab]
 
   const renderScreen=()=>{
+    if(showMembership) return null // rendered as overlay
     if(showAuth) return <AuthScreen
       onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}}
       onGuest={()=>setShowAuth(false)}/>
@@ -1326,7 +2075,8 @@ export default function App(){
       case "clips":    return <ClipsScreen/>
       case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures}/>
       case "profile":  return <ProfileScreen session={session} profile={profile}
-                         onLogout={handleLogout} goToAuth={goToAuth}/>
+                         onLogout={handleLogout} goToAuth={goToAuth}
+                         openMembership={()=>setShowMembership(true)}/>
       default:         return <ForYouScreen goToAuth={goToAuth}/>
     }
   }
@@ -1463,6 +2213,17 @@ export default function App(){
             <div style={{width:110,height:4,background:"#ddd",borderRadius:2}}/>
           </div>
         </div>
+
+        {showMembership&&(
+          <MembershipPage
+            session={session}
+            onClose={()=>setShowMembership(false)}
+            onSuccess={()=>{
+              setShowMembership(false)
+              setActiveTab("profile")
+            }}
+          />
+        )}
 
         <div style={{textAlign:"center",padding:"10px 0 0",display:"none"}}
           className="desktop-footer">
