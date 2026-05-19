@@ -1088,11 +1088,18 @@ export default function App(){
   const [booting,  setBooting]  =useState(true)
 
   useEffect(()=>{
+    // Handle email confirmation redirect — Supabase puts token in URL hash
     supabase.auth.getSession().then(({data:{session}})=>{
-      setSession(session); setBooting(false)
-    })
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_e,session)=>{
       setSession(session)
+      setBooting(false)
+    })
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      setSession(session)
+      // SIGNED_IN fires when email link is clicked and user lands on site
+      if(event==="SIGNED_IN"&&session){
+        setActiveTab("profile")
+        setShowAuth(false)
+      }
     })
     return ()=>subscription.unsubscribe()
   },[])
