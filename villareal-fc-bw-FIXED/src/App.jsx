@@ -1172,48 +1172,565 @@ const ClipsScreen = () => {
    STORE
 ══════════════════════════════════════════════════════════════════════════════ */
 const StoreScreen=({goToAuth,fixtures,openMembership})=>{
-  const [subTab,setSubTab]=useState("membership")
+  const [subTab,    setSubTab]    = useState("shop")
+  const [shopSec,   setShopSec]   = useState("adults")  // adults | kids
+  const [cart,      setCart]      = useState([])
+  const [showCart,  setShowCart]  = useState(false)
+  const [selItem,   setSelItem]   = useState(null)   // product detail modal
+  const [selSize,   setSelSize]   = useState("")
+  const [selSeason, setSelSeason] = useState("")
 
-  const ShopTab=()=>(
-    <div style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch"}}>
-      <div style={{borderRadius:14,background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
-        padding:"18px 16px",marginBottom:12,textAlign:"center"}}>
-        <Logo size={54}/>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:"clamp(16px,5vw,20px)",color:NAVY,marginTop:8}}>2026/27 KIT PRE-ORDER</div>
-        <div style={{fontSize:12,color:NAVY,marginTop:4}}>Members get 5% off · Pula prices</div>
-        <button style={{marginTop:12,background:NAVY,border:"none",borderRadius:8,
-          padding:"10px 24px",color:GOLD,fontWeight:800,minHeight:44,
-          fontFamily:"'Barlow Condensed',sans-serif",fontSize:14,cursor:"pointer"}}>
-          PRE-ORDER NOW
-        </button>
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}}>
-        {[
-          {name:"Home Kit 2026/27",price:"P 280"},
-          {name:"Away Kit 2026/27",price:"P 260"},
-          {name:"Training Top",    price:"P 180"},
-          {name:"Scarf",           price:"P 85"},
-          {name:"Cap",             price:"P 70"},
-          {name:"Water Bottle",    price:"P 55"},
-        ].map((p,i)=>(
-          <div key={i} style={{borderRadius:12,overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.09)"}}>
-            <div style={{height:78,background:i%2===0?NAVY:`linear-gradient(135deg,${NAVY},#1a3060)`,
-              display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <Logo size={46}/>
-            </div>
-            <div style={{padding:"8px 10px 10px",background:WHITE}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                fontSize:"clamp(11px,3vw,13px)",color:NAVY}}>{p.name}</div>
-              <div style={{fontSize:13,color:GOLD,fontWeight:800,
-                fontFamily:"'Barlow Condensed',sans-serif"}}>{p.price}</div>
-            </div>
+  /* ── CATALOGUE ──────────────────────────────────────────────────── */
+  const ADULT_SIZES = ["XS","S","M","L","XL","XXL","XXXL","XXXXL"]
+  const SEASONS     = ["2026/27","2025/26","2024/25","2023/24"]
+
+  const ADULT_PRODUCTS = [
+    {
+      id:"a1", name:"Home Kit 2026/27", season:"2026/27",
+      tag:"NEW SEASON", tagColor:"#27AE60",
+      price:280, memberPrice:266,
+      emoji:"🟡", desc:"Official Villareal FC home kit. Navy & gold. Sublimation print.",
+      sizes:ADULT_SIZES, inStock:true,
+    },
+    {
+      id:"a2", name:"Away Kit 2026/27", season:"2026/27",
+      tag:"NEW SEASON", tagColor:"#27AE60",
+      price:260, memberPrice:247,
+      emoji:"⬜", desc:"Official Villareal FC away kit. White & gold trim.",
+      sizes:ADULT_SIZES, inStock:true,
+    },
+    {
+      id:"a3", name:"Training Top 2026/27", season:"2026/27",
+      tag:"TRAINING", tagColor:"#0891b2",
+      price:180, memberPrice:171,
+      emoji:"💛", desc:"Lightweight training top. Moisture-wicking fabric.",
+      sizes:ADULT_SIZES, inStock:true,
+    },
+    {
+      id:"a4", name:"Home Kit 2025/26", season:"2025/26",
+      tag:"LAST SEASON", tagColor:NAVY,
+      price:220, memberPrice:209,
+      emoji:"🏆", desc:"2025/26 season home kit. Classic navy stripe.",
+      sizes:["S","M","L","XL","XXL"], inStock:true,
+    },
+    {
+      id:"a5", name:"Away Kit 2025/26", season:"2025/26",
+      tag:"LAST SEASON", tagColor:NAVY,
+      price:200, memberPrice:190,
+      emoji:"🌟", desc:"2025/26 away kit. Gold & white colourway.",
+      sizes:["S","M","L","XL"], inStock:true,
+    },
+    {
+      id:"a6", name:"Goalkeeper Kit 2026/27", season:"2026/27",
+      tag:"LIMITED", tagColor:"#7c3aed",
+      price:300, memberPrice:285,
+      emoji:"🧤", desc:"Official goalkeeper kit. High-vis yellow.",
+      sizes:["M","L","XL","XXL","XXXL"], inStock:true,
+    },
+    {
+      id:"a7", name:"Home Kit 2024/25", season:"2024/25",
+      tag:"SALE", tagColor:RED,
+      price:160, memberPrice:152, originalPrice:220,
+      emoji:"⚽", desc:"2024/25 classic home kit. Limited stock.",
+      sizes:["M","L","XL"], inStock:true,
+    },
+    {
+      id:"a8", name:"Fan T-Shirt — Honey Badger", season:"2026/27",
+      tag:"FAN GEAR", tagColor:"#D4A800",
+      price:120, memberPrice:114,
+      emoji:"🦡", desc:"Casual fan tee. 100% cotton. Honey Badger crest print.",
+      sizes:ADULT_SIZES, inStock:true,
+    },
+  ]
+
+  const KIDS_GROUPS = [
+    { label:"2–4 yrs",  age:"2-4",   sizes:["2Y","3Y","4Y"],   kitPrice:160, tshirtPrice:90  },
+    { label:"5–6 yrs",  age:"5-6",   sizes:["5Y","6Y"],        kitPrice:170, tshirtPrice:100 },
+    { label:"7–8 yrs",  age:"7-8",   sizes:["7Y","8Y"],        kitPrice:185, tshirtPrice:110 },
+    { label:"9–10 yrs", age:"9-10",  sizes:["9Y","10Y"],       kitPrice:200, tshirtPrice:120 },
+    { label:"11–12 yrs",age:"11-12", sizes:["11Y","12Y"],      kitPrice:215, tshirtPrice:130 },
+    { label:"13–14 yrs",age:"13-14", sizes:["13Y","14Y"],      kitPrice:230, tshirtPrice:140 },
+    { label:"15–16 yrs",age:"15-16", sizes:["15Y","16Y"],      kitPrice:250, tshirtPrice:150 },
+  ]
+
+  const KIDS_PRODUCTS = KIDS_GROUPS.flatMap(g => [
+    {
+      id:`k_${g.age}_kit`, name:`Home Kit ${g.label}`, ageGroup:g.label,
+      tag:g.label, tagColor:NAVY, price:g.kitPrice, memberPrice:Math.round(g.kitPrice*0.95),
+      emoji:"⚽", desc:`Official Villareal FC home kit for ${g.label}. Navy & gold.`,
+      sizes:g.sizes, inStock:true, type:"kit",
+    },
+    {
+      id:`k_${g.age}_tee`, name:`Fan Tee ${g.label}`, ageGroup:g.label,
+      tag:g.label, tagColor:"#0891b2", price:g.tshirtPrice, memberPrice:Math.round(g.tshirtPrice*0.95),
+      emoji:"👕", desc:`Honey Badger fan t-shirt for ${g.label}. Soft cotton.`,
+      sizes:g.sizes, inStock:true, type:"tee",
+    },
+  ])
+
+  const addToCart = (product, size) => {
+    setCart(prev => {
+      const exists = prev.find(i=>i.id===product.id&&i.size===size)
+      if(exists) return prev.map(i=>i.id===product.id&&i.size===size?{...i,qty:i.qty+1}:i)
+      return [...prev, {...product, size, qty:1}]
+    })
+    setSelItem(null)
+    setSelSize("")
+  }
+
+  const cartTotal    = cart.reduce((s,i)=>s+i.price*i.qty, 0)
+  const cartQty      = cart.reduce((s,i)=>s+i.qty, 0)
+  const [kidsAgeFilter, setKidsAgeFilter] = useState("all")
+
+  /* ── PRODUCT CARD ─────────────────────────────────────────────── */
+  const ProductCard = ({p}) => (
+    <div onClick={()=>{setSelItem(p);setSelSize("");setSelSeason(p.season||"")}}
+      style={{borderRadius:14,overflow:"hidden",background:WHITE,
+        boxShadow:"0 2px 10px rgba(0,0,0,0.08)",
+        border:"1.5px solid #eee",cursor:"pointer",
+        WebkitTapHighlightColor:"transparent",
+        transition:"box-shadow 0.15s"}}>
+      {/* Image area */}
+      <div style={{height:130,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+        position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+        <div style={{opacity:0.08,position:"absolute"}}><Logo size={90}/></div>
+        <div style={{fontSize:"clamp(44px,12vw,56px)",zIndex:1}}>{p.emoji}</div>
+        {/* Tag */}
+        <div style={{position:"absolute",top:8,left:8,
+          background:p.tagColor,color:WHITE,
+          fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
+          fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
+          {p.tag}
+        </div>
+        {/* Member badge */}
+        <div style={{position:"absolute",top:8,right:8,
+          background:GOLD,color:NAVY,
+          fontSize:8,fontWeight:900,padding:"2px 6px",borderRadius:4,
+          fontFamily:"'Barlow Condensed',sans-serif"}}>
+          🦡 -5%
+        </div>
+        {p.originalPrice&&(
+          <div style={{position:"absolute",bottom:8,right:8,
+            background:RED,color:WHITE,
+            fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
+            fontFamily:"'Barlow Condensed',sans-serif"}}>
+            SALE
           </div>
-        ))}
+        )}
+      </div>
+      {/* Info */}
+      <div style={{padding:"10px 10px 12px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:"clamp(12px,3.5vw,14px)",color:NAVY,lineHeight:1.2,marginBottom:6,
+          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+          {p.name}
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          {p.originalPrice&&(
+            <span style={{fontSize:11,color:MGRAY,textDecoration:"line-through"}}>
+              P{p.originalPrice}
+            </span>
+          )}
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>
+            P{p.price}
+          </span>
+        </div>
+        <div style={{fontSize:10,color:GOLD2,fontWeight:700,marginTop:2}}>
+          Members: P{p.memberPrice}
+        </div>
       </div>
     </div>
   )
 
+  /* ── PRODUCT DETAIL MODAL ─────────────────────────────────────── */
+  const ProductModal = () => {
+    if(!selItem) return null
+    const p = selItem
+    return (
+      <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",
+        zIndex:200,display:"flex",alignItems:"flex-end"}}>
+        <div style={{background:WHITE,width:"100%",borderRadius:"22px 22px 0 0",
+          maxHeight:"88%",overflow:"hidden",display:"flex",flexDirection:"column"}}>
+          {/* Handle */}
+          <div style={{padding:"12px 16px 0",flexShrink:0}}>
+            <div style={{width:40,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 12px"}}/>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:20,color:NAVY}}>{p.name}</div>
+              <button onClick={()=>setSelItem(null)}
+                style={{background:"#f0f0f0",border:"none",borderRadius:"50%",
+                  width:30,height:30,cursor:"pointer",fontSize:14,color:MGRAY}}>✕</button>
+            </div>
+          </div>
+          <div style={{flex:1,overflowY:"auto",padding:"12px 16px 24px",
+            WebkitOverflowScrolling:"touch"}}>
+            {/* Hero */}
+            <div style={{height:160,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+              borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",
+              marginBottom:16,position:"relative",overflow:"hidden"}}>
+              <div style={{opacity:0.08,position:"absolute"}}><Logo size={120}/></div>
+              <div style={{fontSize:72}}>{p.emoji}</div>
+              <div style={{position:"absolute",top:10,left:10,
+                background:p.tagColor,color:WHITE,fontSize:10,fontWeight:900,
+                padding:"3px 9px",borderRadius:4,
+                fontFamily:"'Barlow Condensed',sans-serif"}}>{p.tag}</div>
+            </div>
+
+            {/* Price */}
+            <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
+              {p.originalPrice&&(
+                <span style={{fontSize:14,color:MGRAY,textDecoration:"line-through"}}>P{p.originalPrice}</span>
+              )}
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:30,color:NAVY}}>P{p.price}</span>
+            </div>
+            <div style={{background:`${GOLD}22`,border:`1px solid ${GOLD}`,
+              borderRadius:8,padding:"6px 12px",marginBottom:14,
+              display:"inline-block",fontSize:12,color:GOLD2,fontWeight:700}}>
+              🦡 Honey Badger members pay P{p.memberPrice}
+            </div>
+
+            <div style={{fontSize:13,color:MGRAY,lineHeight:1.6,marginBottom:16}}>
+              {p.desc}
+            </div>
+
+            {/* Season selector (adults) */}
+            {p.season&&(
+              <>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>SEASON</div>
+                <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+                  {SEASONS.map(s=>(
+                    <button key={s} onClick={()=>setSelSeason(s)} style={{
+                      padding:"6px 14px",borderRadius:8,minHeight:36,
+                      border:`1.5px solid ${selSeason===s?NAVY:"#e5e7eb"}`,
+                      background:selSeason===s?NAVY:WHITE,
+                      color:selSeason===s?WHITE:NAVY,
+                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                      fontSize:12,cursor:"pointer",
+                      WebkitTapHighlightColor:"transparent",
+                    }}>{s}</button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Size selector */}
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+              SELECT SIZE
+            </div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
+              {p.sizes.map(sz=>(
+                <button key={sz} onClick={()=>setSelSize(sz)} style={{
+                  width:"clamp(42px,12vw,52px)",height:"clamp(42px,12vw,52px)",
+                  borderRadius:10,
+                  border:`2px solid ${selSize===sz?NAVY:"#e5e7eb"}`,
+                  background:selSize===sz?NAVY:WHITE,
+                  color:selSize===sz?WHITE:NAVY,
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:13,cursor:"pointer",
+                  WebkitTapHighlightColor:"transparent",
+                }}>{sz}</button>
+              ))}
+            </div>
+
+            {/* Size guide */}
+            {p.sizes.includes("XS")&&(
+              <div style={{background:LGRAY,borderRadius:10,padding:"10px 12px",marginBottom:16}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:11,color:NAVY,marginBottom:6}}>SIZE GUIDE (chest cm)</div>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
+                  {[["XS","80–84"],["S","88–92"],["M","96–100"],["L","104–108"],
+                    ["XL","112–116"],["XXL","120–124"],["XXXL","128–132"],["XXXXL","136–140"]].map(([s,m])=>(
+                    <div key={s} style={{textAlign:"center",padding:"4px",
+                      background:selSize===s?`${GOLD}33`:WHITE,
+                      borderRadius:6,border:`1px solid ${selSize===s?GOLD:"#eee"}`}}>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                        fontSize:12,color:NAVY}}>{s}</div>
+                      <div style={{fontSize:9,color:MGRAY}}>{m}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add to cart */}
+            <button
+              onClick={()=>{ if(selSize) addToCart(p, selSize) }}
+              disabled={!selSize}
+              style={{width:"100%",padding:"15px",minHeight:52,
+                background:selSize?NAVY:"#e5e7eb",border:"none",borderRadius:12,
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,
+                color:selSize?WHITE:"#aaa",cursor:selSize?"pointer":"not-allowed",
+                WebkitTapHighlightColor:"transparent"}}>
+              {selSize?`ADD TO CART — P${p.price}`:"SELECT A SIZE FIRST"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── CART MODAL ───────────────────────────────────────────────── */
+  const CartModal = () => (
+    <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",
+      zIndex:200,display:"flex",alignItems:"flex-end"}}>
+      <div style={{background:WHITE,width:"100%",borderRadius:"22px 22px 0 0",
+        maxHeight:"88%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #eee",flexShrink:0}}>
+          <div style={{width:40,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 12px"}}/>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:20,color:NAVY}}>YOUR CART ({cartQty})</div>
+            <button onClick={()=>setShowCart(false)}
+              style={{background:"#f0f0f0",border:"none",borderRadius:"50%",
+                width:30,height:30,cursor:"pointer",fontSize:14,color:MGRAY}}>✕</button>
+          </div>
+        </div>
+        <div style={{flex:1,overflowY:"auto",padding:"12px 16px",
+          WebkitOverflowScrolling:"touch"}}>
+          {cart.length===0?(
+            <div style={{textAlign:"center",padding:"40px 0"}}>
+              <div style={{fontSize:40,marginBottom:10}}>🛒</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:18,color:NAVY}}>YOUR CART IS EMPTY</div>
+              <div style={{fontSize:13,color:MGRAY,marginTop:4}}>Add items to get started</div>
+            </div>
+          ):(
+            cart.map((item,i)=>(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,
+                padding:"12px 0",borderBottom:"1px solid #f0f0f0"}}>
+                <div style={{width:50,height:50,borderRadius:10,
+                  background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  fontSize:24,flexShrink:0}}>{item.emoji}</div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                    fontSize:14,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
+                    whiteSpace:"nowrap"}}>{item.name}</div>
+                  <div style={{fontSize:12,color:MGRAY}}>Size: {item.size} · Qty: {item.qty}</div>
+                </div>
+                <div style={{textAlign:"right",flexShrink:0}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                    fontSize:16,color:NAVY}}>P{item.price*item.qty}</div>
+                  <button onClick={()=>setCart(prev=>prev.filter((_,j)=>j!==i))}
+                    style={{fontSize:11,color:RED,fontWeight:700,background:"none",
+                      border:"none",cursor:"pointer",padding:0}}>Remove</button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {cart.length>0&&(
+          <div style={{padding:"14px 16px",borderTop:"1px solid #eee",flexShrink:0}}>
+            <div style={{display:"flex",justifyContent:"space-between",
+              alignItems:"center",marginBottom:12}}>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:16,color:NAVY}}>TOTAL</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:24,color:NAVY}}>P{cartTotal}</span>
+            </div>
+            <button onClick={goToAuth}
+              style={{width:"100%",padding:"14px",background:GOLD,border:"none",
+                borderRadius:12,fontFamily:"'Barlow Condensed',sans-serif",
+                fontWeight:900,fontSize:16,color:NAVY,cursor:"pointer",minHeight:50}}>
+              CHECKOUT →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  /* ── SHOP TAB ─────────────────────────────────────────────────── */
+  const ShopTab = () => {
+    const [adultSeason, setAdultSeason] = useState("all")
+    const filteredAdults = adultSeason==="all"
+      ? ADULT_PRODUCTS
+      : ADULT_PRODUCTS.filter(p=>p.season===adultSeason)
+    const filteredKids = kidsAgeFilter==="all"
+      ? KIDS_PRODUCTS
+      : KIDS_PRODUCTS.filter(p=>p.ageGroup===kidsAgeFilter)
+
+    return (
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+
+        {/* Hero banner */}
+        <div style={{background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 100%)`,
+          padding:"clamp(20px,5vw,28px) clamp(16px,4vw,20px)",
+          position:"relative",overflow:"hidden",marginBottom:0}}>
+          <div style={{opacity:0.06,position:"absolute",right:-20,top:-20}}><Logo size={200}/></div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(11px,3vw,13px)",color:GOLD,letterSpacing:"0.12em",marginBottom:6}}>
+            OFFICIAL VILLAREAL FC
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(28px,8vw,36px)",color:WHITE,lineHeight:1,marginBottom:8}}>
+            THE OFFICIAL<br/>STORE 🦡
+          </div>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",marginBottom:16}}>
+            Kits · Training · Fan Gear · Kids
+          </div>
+          {/* Section switcher */}
+          <div style={{display:"flex",gap:8}}>
+            {["adults","kids"].map(s=>(
+              <button key={s} onClick={()=>setShopSec(s)} style={{
+                padding:"8px 20px",borderRadius:20,minHeight:38,
+                background:shopSec===s?GOLD:"rgba(255,255,255,0.12)",
+                border:"none",cursor:"pointer",
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:"clamp(12px,3.5vw,14px)",
+                color:shopSec===s?NAVY:WHITE,
+                WebkitTapHighlightColor:"transparent",
+              }}>
+                {s==="adults"?"👕 ADULTS":"👶 KIDS"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ── ADULTS ── */}
+        {shopSec==="adults"&&(
+          <div style={{padding:"14px 12px 20px"}}>
+            {/* Season filter */}
+            <div style={{display:"flex",gap:8,overflowX:"auto",marginBottom:16,
+              paddingBottom:4}}>
+              {["all",...SEASONS].map(s=>(
+                <button key={s} onClick={()=>setAdultSeason(s)} style={{
+                  padding:"6px 14px",borderRadius:20,whiteSpace:"nowrap",minHeight:34,
+                  border:`1.5px solid ${adultSeason===s?NAVY:"#e5e7eb"}`,
+                  background:adultSeason===s?NAVY:WHITE,
+                  color:adultSeason===s?WHITE:MGRAY,
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                  fontSize:12,cursor:"pointer",flexShrink:0,
+                  WebkitTapHighlightColor:"transparent",
+                }}>
+                  {s==="all"?"ALL SEASONS":s}
+                </button>
+              ))}
+            </div>
+
+            {/* New arrivals hero */}
+            <div style={{borderRadius:14,overflow:"hidden",marginBottom:14,
+              background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
+              padding:"18px 16px",display:"flex",justifyContent:"space-between",
+              alignItems:"center"}}>
+              <div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:11,color:NAVY,letterSpacing:"0.1em",marginBottom:4}}>
+                  NEW 2026/27 SEASON
+                </div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:22,color:NAVY,lineHeight:1}}>
+                  HOME KIT<br/>NOW AVAILABLE
+                </div>
+                <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:4}}>
+                  Members save 5% · Sizes XS–XXXXL
+                </div>
+              </div>
+              <div style={{fontSize:56,flexShrink:0}}>⚽</div>
+            </div>
+
+            {/* Product grid */}
+            <div style={{display:"grid",
+              gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:12}}>
+              {filteredAdults.map(p=><ProductCard key={p.id} p={p}/>)}
+            </div>
+          </div>
+        )}
+
+        {/* ── KIDS ── */}
+        {shopSec==="kids"&&(
+          <div style={{padding:"14px 12px 20px"}}>
+            {/* Kids hero */}
+            <div style={{borderRadius:14,overflow:"hidden",marginBottom:14,
+              background:`linear-gradient(135deg,#0891b2,#0e7490)`,
+              padding:"18px 16px",display:"flex",justifyContent:"space-between",
+              alignItems:"center"}}>
+              <div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:11,color:"rgba(255,255,255,0.7)",letterSpacing:"0.1em",marginBottom:4}}>
+                  VILLAREAL FC
+                </div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:22,color:WHITE,lineHeight:1}}>
+                  KIDS<br/>APPAREL
+                </div>
+                <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",marginTop:4}}>
+                  Ages 2–16 · Kits & Fan Tees
+                </div>
+              </div>
+              <div style={{fontSize:52,flexShrink:0}}>👶</div>
+            </div>
+
+            {/* Age group filter */}
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+              AGE GROUP
+            </div>
+            <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:4}}>
+              {["all",...KIDS_GROUPS.map(g=>g.label)].map(a=>(
+                <button key={a} onClick={()=>setKidsAgeFilter(a==="all"?"all":a)} style={{
+                  padding:"6px 12px",borderRadius:20,whiteSpace:"nowrap",minHeight:34,
+                  border:`1.5px solid ${kidsAgeFilter===(a==="all"?"all":a)?NAVY:"#e5e7eb"}`,
+                  background:kidsAgeFilter===(a==="all"?"all":a)?NAVY:WHITE,
+                  color:kidsAgeFilter===(a==="all"?"all":a)?WHITE:MGRAY,
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                  fontSize:11,cursor:"pointer",flexShrink:0,
+                  WebkitTapHighlightColor:"transparent",
+                }}>
+                  {a==="all"?"ALL AGES":a}
+                </button>
+              ))}
+            </div>
+
+            {/* Price guide */}
+            <div style={{background:LGRAY,borderRadius:10,padding:"12px 14px",
+              marginBottom:14,border:"1px solid #e5e7eb"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:11,color:NAVY,marginBottom:8}}>KIDS PRICING GUIDE</div>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:300}}>
+                  <thead>
+                    <tr style={{background:NAVY}}>
+                      {["Age","Kit","Fan Tee","Member Kit"].map(h=>(
+                        <th key={h} style={{padding:"5px 8px",color:WHITE,
+                          fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                          fontSize:10,textAlign:"left",letterSpacing:"0.04em"}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {KIDS_GROUPS.map((g,i)=>(
+                      <tr key={g.age} style={{background:i%2===0?WHITE:LGRAY}}>
+                        <td style={{padding:"5px 8px",fontWeight:700,color:NAVY}}>{g.label}</td>
+                        <td style={{padding:"5px 8px",color:NAVY}}>P{g.kitPrice}</td>
+                        <td style={{padding:"5px 8px",color:NAVY}}>P{g.tshirtPrice}</td>
+                        <td style={{padding:"5px 8px",color:GOLD2,fontWeight:700}}>
+                          P{Math.round(g.kitPrice*0.95)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Kids product grid */}
+            <div style={{display:"grid",
+              gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:12}}>
+              {(kidsAgeFilter==="all"?KIDS_PRODUCTS:KIDS_PRODUCTS.filter(p=>p.ageGroup===kidsAgeFilter))
+                .map(p=><ProductCard key={p.id} p={p}/>)}
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  /* ── TICKETS TAB ──────────────────────────────────────────────── */
   const TicketsTab=()=>(
     <div style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch"}}>
       {fixtures.filter(f=>!f.result).map(fx=>(
@@ -1226,8 +1743,9 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
               {new Date(fx.match_date).toLocaleDateString("en-GB",
                 {day:"numeric",month:"short",year:"numeric"}).toUpperCase()}
             </span>
-            <Pill label={fx.venue} bg={fx.venue==="AWAY"?RED:GOLD}
-              color={fx.venue==="AWAY"?WHITE:NAVY} small/>
+            <span style={{background:fx.venue==="AWAY"?RED:GREEN,color:WHITE,
+              fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>{fx.venue}</span>
           </div>
           <div style={{background:WHITE,padding:"12px 14px",display:"flex",
             alignItems:"center",justifyContent:"space-between",gap:8}}>
@@ -1241,7 +1759,8 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
             </div>
             <button style={{background:GOLD,border:"none",borderRadius:8,
               padding:"8px 14px",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:800,fontSize:13,color:NAVY,cursor:"pointer",flexShrink:0,minHeight:40}}>
+              fontWeight:800,fontSize:13,color:NAVY,cursor:"pointer",
+              flexShrink:0,minHeight:40}}>
               {fx.venue==="HOME"?"BUY P25":"AWAY"}
             </button>
           </div>
@@ -1255,6 +1774,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
     </div>
   )
 
+  /* ── MEMBERSHIP TAB ───────────────────────────────────────────── */
   const MembershipTab=()=>{
     const [billing,setBilling]=useState("yearly")
     const isYearly=billing==="yearly"
@@ -1270,57 +1790,51 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
           <div style={{fontSize:12,color:"#aaa",marginBottom:16,marginTop:4}}>
             Villareal FC Premium Membership
           </div>
-
-          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:10,
-            padding:3,marginBottom:16}}>
+          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",
+            borderRadius:10,padding:3,marginBottom:16}}>
             {["monthly","yearly"].map(b=>(
               <button key={b} onClick={()=>setBilling(b)} style={{
-                flex:1,padding:"10px 0",minHeight:44,
-                background:billing===b?WHITE:"none",
-                border:"none",borderRadius:8,cursor:"pointer",
-                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:"clamp(11px,3vw,13px)",
-                color:billing===b?NAVY:"#aaa",WebkitTapHighlightColor:"transparent",
-                display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                flex:1,padding:"9px 0",minHeight:42,
+                background:billing===b?WHITE:"none",border:"none",borderRadius:8,
+                cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+                fontWeight:800,fontSize:"clamp(11px,3vw,13px)",
+                color:billing===b?NAVY:"#aaa",
+                display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                WebkitTapHighlightColor:"transparent"}}>
                 {b.toUpperCase()}
-                {b==="yearly"&&(
-                  <span style={{background:GREEN,color:WHITE,fontSize:9,fontWeight:900,
-                    padding:"1px 5px",borderRadius:3}}>SAVE {YEARLY_PCT}%</span>
-                )}
+                {b==="yearly"&&<span style={{background:GREEN,color:WHITE,fontSize:9,
+                  fontWeight:900,padding:"1px 5px",borderRadius:3}}>SAVE 17%</span>}
               </button>
             ))}
           </div>
-
           <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:4}}>
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
               fontSize:"clamp(36px,10vw,48px)",color:GOLD}}>
-              P{isYearly?YEARLY_PRICE:MONTHLY_PRICE}
+              P{isYearly?200:20}
             </span>
             <span style={{color:"#aaa",fontSize:14}}>{isYearly?"/ Year":"/ Month"}</span>
           </div>
           <div style={{fontSize:12,color:"#888",marginBottom:18}}>
-            {isYearly
-              ?`P${MONTHLY_PRICE}/month equivalent · Save P40 vs monthly`
-              :`Or P${YEARLY_PRICE}/year and save ${YEARLY_PCT}%`}
+            {isYearly?"P20/month equivalent · Save P40 vs monthly"
+              :"Or P200/year and save 17%"}
           </div>
-
-          {["Early access to match tickets","10% off match-day tickets","5% off online store",
-            "Exclusive member kit number","Priority squad updates"].map((b,i)=>(
+          {["Early access to match tickets","10% off match-day tickets",
+            "5% off official store","Exclusive member kit number",
+            "Priority squad updates"].map((b,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}>
               <span style={{color:GOLD,fontSize:16,flexShrink:0}}>✔</span>
               <span style={{color:WHITE,fontSize:"clamp(12px,3.5vw,14px)",
                 fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{b}</span>
             </div>
           ))}
-
           <div style={{marginTop:22}}>
-            <Btn onClick={()=>{
-              // If logged in open membership page directly, else go to auth
-              if(typeof openMembership === 'function') openMembership()
-              else goToAuth()
-            }} bg={GOLD} color={NAVY}>
+            <button onClick={openMembership}
+              style={{width:"100%",padding:"14px",background:GOLD,border:"none",
+                borderRadius:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:16,color:NAVY,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                minHeight:50}}>
               JOIN THE HONEY BADGERS →
-            </Btn>
+            </button>
           </div>
         </div>
       </div>
@@ -1328,18 +1842,49 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
   }
 
   return (
-    <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,overflow:"hidden"}}>
-      <div style={{display:"flex",borderBottom:`1px solid #eee`,padding:"0 14px",gap:14,overflowX:"auto"}}>
+    <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,
+      overflow:"hidden",position:"relative"}}>
+
+      {/* Modals */}
+      {selItem&&!showCart&&<ProductModal/>}
+      {showCart&&<CartModal/>}
+
+      {/* Tab bar + cart icon */}
+      <div style={{display:"flex",borderBottom:`1px solid #eee`,
+        padding:"0 14px",gap:14,overflowX:"auto",flexShrink:0,
+        alignItems:"center",background:WHITE}}>
         {["shop","tickets","membership"].map(t=>(
           <button key={t} onClick={()=>setSubTab(t)} style={{
             background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
-            fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",fontWeight:700,
-            color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
+            fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",
+            fontWeight:700,color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
             borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
-            textTransform:"uppercase",WebkitTapHighlightColor:"transparent",whiteSpace:"nowrap",
+            textTransform:"uppercase",WebkitTapHighlightColor:"transparent",
+            whiteSpace:"nowrap",
           }}>{t}</button>
         ))}
+        {/* Cart button */}
+        <button onClick={()=>setShowCart(true)}
+          style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",
+            position:"relative",padding:"8px 0",flexShrink:0,
+            WebkitTapHighlightColor:"transparent"}}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke={NAVY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+            <line x1="3" y1="6" x2="21" y2="6"/>
+            <path d="M16 10a4 4 0 01-8 0"/>
+          </svg>
+          {cartQty>0&&(
+            <div style={{position:"absolute",top:2,right:-4,
+              background:RED,color:WHITE,borderRadius:"50%",
+              width:17,height:17,display:"flex",alignItems:"center",
+              justifyContent:"center",fontSize:9,fontWeight:900}}>
+              {cartQty}
+            </div>
+          )}
+        </button>
       </div>
+
       {subTab==="shop"       && <ShopTab/>}
       {subTab==="tickets"    && <TicketsTab/>}
       {subTab==="membership" && <MembershipTab/>}
@@ -2220,4 +2765,1041 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
           <label style={{fontSize:11,fontWeight:700,color:MGRAY,
             fontFamily:"'Barlow Condensed',sans-serif",display:"block",
             marginBottom:6,letterSpacing:"0.06em"}}>DATE OF BIRTH</label>
-          <input type="dat
+          <input type="date" value={dob}
+            onChange={e=>handleDobChange(e.target.value)}
+            max={new Date().toISOString().split("T")[0]}
+            style={{width:"100%",padding:"13px 14px",borderRadius:10,
+              border:`2px solid ${isDobValid&&!isBlocked&&!isFraud?GREEN:isBlocked||isFraud?RED:"#e5e7eb"}`,
+              fontSize:16,outline:"none",boxSizing:"border-box",
+              fontFamily:"inherit",WebkitAppearance:"none",minHeight:50,
+              background:WHITE}}/>
+        </div>
+
+        {/* Age detection result */}
+        {isDobValid && (
+          <div style={{
+            borderRadius:10,padding:"12px 14px",marginBottom:14,
+            background:isBlocked||isFraud?"#fef2f2":detectedGroup==="adult"?"#eef1f8":"#f0fdf4",
+            border:`1px solid ${isBlocked||isFraud?"#fecaca":detectedGroup==="adult"?"#c7d2fe":"#bbf7d0"}`,
+          }}>
+            {isFraud ? (
+              <>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:13,color:RED,marginBottom:4}}>⚠ INVALID AGE FOR THIS PLAN</div>
+                <div style={{fontSize:12,color:"#7f1d1d",lineHeight:1.5}}>
+                  Paid plans require members aged 6 and above. Infants (0–5) are only eligible for the free plan.
+                  Please select Premium Free or enter a valid date of birth.
+                </div>
+              </>
+            ) : isBlocked ? (
+              <>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:13,color:RED,marginBottom:4}}>⚠ AGE RESTRICTION</div>
+                <div style={{fontSize:12,color:"#7f1d1d",lineHeight:1.5}}>
+                  🦡 Honey Badger membership is for adults aged 18+ only.
+                  You are {age} years old. Please select Global Fan or Premium Free instead.
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:13,color:detectedGroup==="adult"?NAVY:GREEN,marginBottom:4}}>
+                  ✓ Age detected: {age} years old
+                </div>
+                <div style={{fontSize:12,color:MGRAY,lineHeight:1.5}}>
+                  {detectedGroup==="infant"&&"Infant (0–5) · Free on all plans"}
+                  {detectedGroup==="youth"&&`Youth (6–17) · P${getPrice(selectedPlan,"youth")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name}`}
+                  {detectedGroup==="adult"&&`Adult (18+) · P${getPrice(selectedPlan,"adult")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name} · ID verification required`}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Anti-fraud notice */}
+        <div style={{background:"#fffbea",border:`1px solid #fde68a`,borderRadius:10,
+          padding:"10px 14px",marginBottom:20}}>
+          <div style={{fontSize:11,color:"#78350f",lineHeight:1.6}}>
+            🔒 <strong>Fraud prevention:</strong> Entering a false date of birth to avoid payment
+            is a violation of our Terms. Identity documents are verified against your DOB for all paid plans.
+            Fraudulent accounts will be permanently banned.
+          </div>
+        </div>
+
+        {/* Price summary */}
+        {isDobValid&&!isBlocked&&!isFraud&&ageGroup&&(
+          <div style={{background:"#f8f9fb",borderRadius:12,padding:"12px 14px",
+            marginBottom:18,border:`1px solid #e5e7eb`}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:6}}>
+              YOUR PRICE
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <span style={{fontSize:14,color:NAVY,fontWeight:600}}>
+                {selectedPlan?.name} · {age} yrs
+              </span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:22,color:getPrice(selectedPlan,ageGroup)===0?GREEN:NAVY}}>
+                {getPrice(selectedPlan,ageGroup)===0
+                  ? "FREE"
+                  : `P${getPrice(selectedPlan,ageGroup)}/${billing==="monthly"?"mo":"yr"}`}
+              </span>
+            </div>
+            {billing==="yearly"&&getSaving(selectedPlan,ageGroup)>0&&(
+              <div style={{fontSize:12,color:GREEN,marginTop:3,fontWeight:600}}>
+                Saves P{getSaving(selectedPlan,ageGroup)} vs monthly billing
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setStep(1)}
+            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
+              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            ← BACK
+          </button>
+          <button
+            onClick={()=>{
+              if(!dob) { setError("Please enter your date of birth."); return }
+              if(isBlocked||isFraud) { setError("Please go back and choose a suitable plan for your age."); return }
+              setError("")
+              setStep(3)
+            }}
+            disabled={!dob||isBlocked||isFraud}
+            style={{flex:2,padding:"14px",
+              background:!dob||isBlocked||isFraud?"#e5e7eb":NAVY,
+              border:"none",borderRadius:12,
+              cursor:!dob||isBlocked||isFraud?"not-allowed":"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:15,
+              color:!dob||isBlocked||isFraud?"#aaa":WHITE,
+              minHeight:50,WebkitTapHighlightColor:"transparent"}}>
+            CONTINUE →
+          </button>
+        </div>
+        {error&&<div style={{color:RED,fontSize:13,marginTop:10,fontWeight:600,textAlign:"center"}}>{error}</div>}
+      </div>
+    )
+  }
+
+  /* ── STEP 3: PERSONAL DETAILS ── */
+  const Step3 = () => {
+    const [localName, setLocalName] = useState(nameVal)
+    const [localIdType, setLocalIdType] = useState(idType)
+
+    const handleNext = () => {
+      if (!localName.trim()) { setError("Please enter your full name."); return }
+      if (needsVerify && !localIdType) { setError("Please select an ID type."); return }
+      setNameVal(localName)
+      setIdType(localIdType)
+      setError("")
+      needsVerify ? setStep(4) : handleSubmit()
+    }
+
+    return (
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 14px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:22,color:NAVY,marginBottom:4}}>YOUR DETAILS</div>
+        <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>
+          {needsVerify
+            ? "Adults must verify their identity. Your name must match your ID document exactly."
+            : "Almost done — confirm your details to complete registration."}
+        </div>
+
+        <div style={{marginBottom:14}}>
+          <label style={{fontSize:11,fontWeight:700,color:MGRAY,
+            fontFamily:"'Barlow Condensed',sans-serif",display:"block",
+            marginBottom:6,letterSpacing:"0.06em"}}>FULL NAME</label>
+          <input
+            type="text"
+            placeholder="As it appears on your ID"
+            defaultValue={localName}
+            onBlur={e => setLocalName(e.target.value)}
+            style={{width:"100%",padding:"13px 14px",borderRadius:10,
+              border:"2px solid #e5e7eb",fontSize:16,outline:"none",
+              boxSizing:"border-box",fontFamily:"inherit",
+              WebkitAppearance:"none",minHeight:50}}
+            onFocus={e=>e.target.style.borderColor=GOLD}
+          />
+        </div>
+
+        <div style={{marginBottom:18}}>
+          <label style={{fontSize:11,fontWeight:700,color:MGRAY,
+            fontFamily:"'Barlow Condensed',sans-serif",display:"block",
+            marginBottom:6,letterSpacing:"0.06em"}}>EMAIL</label>
+          <input type="email" value={session?.user?.email||""} disabled
+            style={{width:"100%",padding:"13px 14px",borderRadius:10,
+              border:"2px solid #f0f0f0",fontSize:16,outline:"none",
+              boxSizing:"border-box",fontFamily:"inherit",
+              background:"#f8f9fb",color:MGRAY,minHeight:50}}/>
+        </div>
+
+        {needsVerify&&(
+          <>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+              ID DOCUMENT TYPE
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+              {ID_TYPES.map(t=>(
+                <div key={t.id} onClick={()=>setLocalIdType(t.id)} style={{
+                  padding:"13px 14px",borderRadius:12,cursor:"pointer",
+                  border:`2px solid ${localIdType===t.id?NAVY:"#e5e7eb"}`,
+                  background:localIdType===t.id?"#eef1f8":WHITE,
+                  display:"flex",alignItems:"center",gap:12,
+                  WebkitTapHighlightColor:"transparent",minHeight:50,
+                }}>
+                  <span style={{fontSize:22}}>{t.icon}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:15,color:NAVY}}>{t.label}</div>
+                    <div style={{fontSize:11,color:MGRAY,marginTop:1}}>
+                      {t.sides===2?"Front & back photos required":"Front photo only"}
+                    </div>
+                  </div>
+                  <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
+                    border:`2px solid ${localIdType===t.id?NAVY:"#ddd"}`,
+                    background:localIdType===t.id?NAVY:"none",
+                    display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {localIdType===t.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {error&&(
+          <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
+            padding:"10px 14px",color:RED,fontSize:13,marginBottom:14,fontWeight:600}}>
+            {error}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setStep(2)}
+            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
+              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            ← BACK
+          </button>
+          <button onClick={handleNext} disabled={loading}
+            style={{flex:2,padding:"14px",background:loading?"#ccc":NAVY,
+              border:"none",borderRadius:12,cursor:loading?"not-allowed":"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
+              color:loading?"#888":WHITE,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            {loading?"PLEASE WAIT...":needsVerify?"NEXT: VERIFY ID →":"COMPLETE ✓"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── STEP 4: ID VERIFICATION ── */
+  const Step4 = () => {
+    const selId = ID_TYPES.find(t=>t.id===idType)
+    const done = idFront && selfie && (selId?.sides===1 || idBack)
+
+    return (
+      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 14px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:22,color:NAVY,marginBottom:4}}>VERIFY YOUR IDENTITY</div>
+        <div style={{fontSize:13,color:MGRAY,marginBottom:14,lineHeight:1.6}}>
+          Documents are encrypted and used only for verification. Admin reviews within 24–48hrs.
+        </div>
+
+        <div style={{background:"#eef1f8",borderRadius:10,padding:"10px 14px",
+          marginBottom:16,display:"flex",gap:10,border:`1px solid #c7d2fe`}}>
+          <span style={{fontSize:18,flexShrink:0}}>🔒</span>
+          <div style={{fontSize:12,color:NAVY,lineHeight:1.5}}>
+            <strong>Secure & Private</strong> — Reviewed by Villareal FC admin only. Never shared with third parties.
+          </div>
+        </div>
+
+        {/* ID Front */}
+        <div style={{marginBottom:12}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+            {selId?.emoji} {selId?.label?.toUpperCase()} — FRONT
+          </div>
+          {idFront ? (
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+              border:`2px solid ${GREEN}`}}>
+              <img src={idFront} alt="ID Front"
+                style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
+              <div style={{position:"absolute",top:6,right:6,background:GREEN,
+                borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
+                ✓ Captured</div>
+              <button onClick={()=>setIdFront(null)}
+                style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
+                  border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
+                  color:WHITE,cursor:"pointer"}}>Retake</button>
+            </div>
+          ) : (
+            <button onClick={()=>capturePhoto(setIdFront)} style={{
+              width:"100%",height:110,borderRadius:12,
+              border:`2px dashed ${NAVY}`,background:"#f8f9fb",
+              display:"flex",flexDirection:"column",alignItems:"center",
+              justifyContent:"center",gap:6,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:28}}>📷</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:13,color:NAVY}}>TAP TO CAPTURE FRONT</span>
+              <span style={{fontSize:11,color:MGRAY}}>All text must be clearly visible</span>
+            </button>
+          )}
+        </div>
+
+        {/* ID Back (license only) */}
+        {selId?.sides===2&&(
+          <div style={{marginBottom:12}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+              {selId?.emoji} {selId?.label?.toUpperCase()} — BACK
+            </div>
+            {idBack ? (
+              <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+                border:`2px solid ${GREEN}`}}>
+                <img src={idBack} alt="ID Back"
+                  style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
+                <div style={{position:"absolute",top:6,right:6,background:GREEN,
+                  borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
+                  ✓ Captured</div>
+                <button onClick={()=>setIdBack(null)}
+                  style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
+                    border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
+                    color:WHITE,cursor:"pointer"}}>Retake</button>
+              </div>
+            ) : (
+              <button onClick={()=>capturePhoto(setIdBack)} style={{
+                width:"100%",height:110,borderRadius:12,
+                border:`2px dashed ${NAVY}`,background:"#f8f9fb",
+                display:"flex",flexDirection:"column",alignItems:"center",
+                justifyContent:"center",gap:6,cursor:"pointer",
+                WebkitTapHighlightColor:"transparent"}}>
+                <span style={{fontSize:28}}>📷</span>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                  fontSize:13,color:NAVY}}>TAP TO CAPTURE BACK</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Selfie */}
+        <div style={{marginBottom:16}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+            🤳 SELFIE — FACE VERIFICATION
+          </div>
+          <div style={{background:"#fffbea",borderRadius:8,padding:"8px 12px",
+            marginBottom:8,border:`1px solid #fde68a`,fontSize:11,color:"#92400e"}}>
+            📌 Face camera directly · Remove glasses · Good lighting · No hats
+          </div>
+          {selfie ? (
+            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
+              border:`2px solid ${GREEN}`}}>
+              <img src={selfie} alt="Selfie"
+                style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
+              <div style={{position:"absolute",top:6,right:6,background:GREEN,
+                borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
+                ✓ Captured</div>
+              <button onClick={()=>setSelfie(null)}
+                style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
+                  border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
+                  color:WHITE,cursor:"pointer"}}>Retake</button>
+            </div>
+          ) : (
+            <button onClick={()=>captureSelfie(setSelfie)} style={{
+              width:"100%",height:130,borderRadius:12,
+              border:`2px dashed ${GOLD2}`,background:"#fffbea",
+              display:"flex",flexDirection:"column",alignItems:"center",
+              justifyContent:"center",gap:6,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent"}}>
+              <span style={{fontSize:32}}>🤳</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:13,color:NAVY}}>TAP TO TAKE SELFIE</span>
+              <span style={{fontSize:11,color:MGRAY}}>Use your front camera</span>
+            </button>
+          )}
+        </div>
+
+        {error&&(
+          <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
+            padding:"10px 14px",color:RED,fontSize:13,marginBottom:12,fontWeight:600}}>
+            {error}
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setStep(3)}
+            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
+              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            ← BACK
+          </button>
+          <button
+            onClick={()=>{
+              if(!idFront) { setError("Please capture your ID front."); return }
+              if(selId?.sides===2&&!idBack) { setError("Please capture your ID back."); return }
+              if(!selfie) { setError("Please take a selfie."); return }
+              setError(""); handleSubmit()
+            }}
+            disabled={loading||!done}
+            style={{flex:2,padding:"14px",
+              background:loading||!done?"#e5e7eb":NAVY,
+              border:"none",borderRadius:12,
+              cursor:loading||!done?"not-allowed":"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
+              color:loading||!done?"#aaa":WHITE,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            {loading?"SUBMITTING...":"SUBMIT FOR REVIEW →"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── STEP PAYMENT ── */
+  const StepPayment = () => {
+    const [method, setMethod] = useState("")
+    const [ref,    setRef]    = useState("")
+    const [done,   setDone]   = useState(false)
+    const price = getPrice(selectedPlan, ageGroup)
+    const METHODS = [
+      { id:"orange",  label:"Orange Money",  icon:"🟠", num:"*145#" },
+      { id:"myzaka",  label:"MyZaka",        icon:"🔵", num:"*167#" },
+      { id:"eft",     label:"Bank Transfer", icon:"🏦", num:"FNB / BancABC" },
+    ]
+
+    if(done) return (
+      <div style={{flex:1,overflowY:"auto",padding:"24px 16px"}}>
+        <div style={{background:"#f0fdf4",border:`1px solid #bbf7d0`,borderRadius:14,
+          padding:"20px",textAlign:"center",marginBottom:16}}>
+          <div style={{fontSize:40,marginBottom:8}}>✅</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:20,color:GREEN,marginBottom:6}}>PAYMENT SUBMITTED</div>
+          <div style={{fontSize:13,color:"#166534",lineHeight:1.6}}>
+            Your payment reference <strong>{ref}</strong> has been recorded.
+            Our team will verify your payment within 24 hours.
+          </div>
+        </div>
+        <button onClick={()=>needsVerify?setStep(4):handleSubmit()}
+          style={{width:"100%",padding:"14px",background:NAVY,border:"none",
+            borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:900,fontSize:15,color:WHITE,minHeight:50}}>
+          {needsVerify?"NEXT: VERIFY ID →":"COMPLETE REGISTRATION →"}
+        </button>
+      </div>
+    )
+
+    return (
+      <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:22,color:NAVY,marginBottom:4}}>PAYMENT</div>
+        <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>
+          Complete your payment to activate your membership.
+        </div>
+
+        {/* Amount box */}
+        <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+          borderRadius:14,padding:"18px 20px",marginBottom:18,textAlign:"center"}}>
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",marginBottom:4,
+            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em"}}>
+            {selectedPlan?.name} · {billing==="monthly"?"MONTHLY":"YEARLY"}
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:42,color:GOLD,lineHeight:1}}>
+            P{price}
+          </div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4}}>
+            /{billing==="monthly"?"month":"year"}
+          </div>
+        </div>
+
+        {/* Payment methods */}
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+          fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:10}}>
+          SELECT PAYMENT METHOD
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+          {METHODS.map(m=>(
+            <div key={m.id} onClick={()=>setMethod(m.id)} style={{
+              padding:"13px 14px",borderRadius:12,cursor:"pointer",
+              border:`2px solid ${method===m.id?NAVY:"#e5e7eb"}`,
+              background:method===m.id?"#eef1f8":WHITE,
+              display:"flex",alignItems:"center",gap:12,
+              WebkitTapHighlightColor:"transparent",minHeight:54,
+            }}>
+              <span style={{fontSize:24}}>{m.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                  fontWeight:800,fontSize:15,color:NAVY}}>{m.label}</div>
+                <div style={{fontSize:11,color:MGRAY,marginTop:1}}>{m.num}</div>
+              </div>
+              <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
+                border:`2px solid ${method===m.id?NAVY:"#ddd"}`,
+                background:method===m.id?NAVY:"none",
+                display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {method===m.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Instructions */}
+        {method&&(
+          <div style={{background:"#fffbea",border:`1px solid #fde68a`,
+            borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:11,color:"#92400e",marginBottom:6,letterSpacing:"0.06em"}}>
+              HOW TO PAY
+            </div>
+            {method==="orange"&&(
+              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
+                1. Dial <strong>*145#</strong> on your phone<br/>
+                2. Select <strong>Send Money</strong><br/>
+                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
+                4. Enter your reference code below
+              </div>
+            )}
+            {method==="myzaka"&&(
+              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
+                1. Open MyZaka app or dial <strong>*167#</strong><br/>
+                2. Select <strong>Send Money</strong><br/>
+                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
+                4. Enter your reference code below
+              </div>
+            )}
+            {method==="eft"&&(
+              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
+                Bank: <strong>FNB Botswana</strong><br/>
+                Account: <strong>62012345678</strong><br/>
+                Branch: <strong>282672</strong><br/>
+                Reference: <strong>Your email address</strong><br/>
+                Amount: <strong>P{price}</strong>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reference input */}
+        {method&&(
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,fontWeight:700,color:MGRAY,display:"block",
+              marginBottom:6,letterSpacing:"0.06em",
+              fontFamily:"'Barlow Condensed',sans-serif"}}>
+              PAYMENT REFERENCE / CONFIRMATION NUMBER
+            </label>
+            <input placeholder="e.g. TXN123456789" value={ref}
+              onChange={e=>setRef(e.target.value)}
+              style={{width:"100%",padding:"13px 14px",borderRadius:10,
+                border:`2px solid ${ref?GOLD:"#e5e7eb"}`,fontSize:15,outline:"none",
+                boxSizing:"border-box",fontFamily:"inherit",minHeight:50}}/>
+            <div style={{fontSize:11,color:MGRAY,marginTop:4}}>
+              Enter the transaction reference from your payment confirmation
+            </div>
+          </div>
+        )}
+
+        <div style={{display:"flex",gap:10}}>
+          <button onClick={()=>setStep(3)}
+            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
+              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            ← BACK
+          </button>
+          <button
+            onClick={()=>{
+              if(!method){setError("Please select a payment method.");return}
+              if(!ref.trim()){setError("Please enter your payment reference.");return}
+              setError("")
+              setDone(true)
+            }}
+            disabled={!method||!ref.trim()}
+            style={{flex:2,padding:"14px",
+              background:!method||!ref.trim()?"#e5e7eb":GREEN,
+              border:"none",borderRadius:12,
+              cursor:!method||!ref.trim()?"not-allowed":"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
+              color:!method||!ref.trim()?"#aaa":WHITE,minHeight:50,
+              WebkitTapHighlightColor:"transparent"}}>
+            CONFIRM PAYMENT →
+          </button>
+        </div>
+        {error&&<div style={{color:RED,fontSize:13,marginTop:10,
+          fontWeight:600,textAlign:"center"}}>{error}</div>}
+      </div>
+    )
+  }
+
+  /* ── SUCCESS ── */
+  const StepDone = () => (
+    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+      justifyContent:"center",padding:"32px 24px",textAlign:"center"}}>
+      <div style={{width:76,height:76,borderRadius:"50%",
+        background:needsVerify?"#fffbea":"#dcfce7",
+        display:"flex",alignItems:"center",justifyContent:"center",
+        marginBottom:14,fontSize:38}}>
+        {needsVerify?"⏳":"🎉"}
+      </div>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+        fontSize:24,color:NAVY,marginBottom:8}}>
+        {needsVerify?"APPLICATION SUBMITTED!":"WELCOME TO THE FAMILY!"}
+      </div>
+      <div style={{fontSize:14,color:MGRAY,lineHeight:1.7,marginBottom:24,maxWidth:300}}>
+        {needsVerify
+          ? "Your identity is under review. You'll receive an email within 24–48 hours once approved."
+          : `You're now a ${selectedPlan?.name} member! Welcome to Villareal FC 🦡⚽`}
+      </div>
+      {needsVerify&&(
+        <div style={{background:"#fffbea",border:`1px solid #fde68a`,borderRadius:12,
+          padding:"14px 16px",marginBottom:20,textAlign:"left",width:"100%",maxWidth:320}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:"#92400e",marginBottom:8,letterSpacing:"0.06em"}}>
+            WHAT HAPPENS NEXT
+          </div>
+          {["Admin reviews your documents (24–48hrs)",
+            "You receive an approval email",
+            "Full membership benefits unlock",
+            "Digital membership card issued"].map((s,i)=>(
+            <div key={i} style={{display:"flex",gap:8,marginBottom:5}}>
+              <span style={{color:GOLD2,fontWeight:800,flexShrink:0}}>{i+1}.</span>
+              <span style={{fontSize:12,color:"#78350f"}}>{s}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={onClose}
+        style={{width:"100%",maxWidth:320,padding:"15px",background:NAVY,
+          border:"none",borderRadius:12,cursor:"pointer",
+          fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,
+          color:WHITE,WebkitTapHighlightColor:"transparent",minHeight:50}}>
+        {needsVerify?"GO TO MY PROFILE →":"START EXPLORING 🟡"}
+      </button>
+    </div>
+  )
+
+  const isDone = step > totalSteps
+
+  return (
+    <div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",
+      height:"100%",width:"100%"}}>
+      <div style={{
+        background:WHITE,width:"100%",
+        height:"92%",
+        borderRadius:"22px 22px 0 0",
+        display:"flex",flexDirection:"column",
+        overflow:"hidden",
+        boxShadow:"0 -8px 32px rgba(0,0,0,0.3)",
+      }}>
+        {/* Modal header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+          padding:"14px 16px 12px",borderBottom:`1px solid #eee`,flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <Logo size={26}/>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:15,color:NAVY,letterSpacing:"0.04em"}}>MEMBERSHIP</div>
+          </div>
+          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",
+            width:30,height:30,borderRadius:"50%",cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",
+            fontSize:14,color:MGRAY,WebkitTapHighlightColor:"transparent"}}>✕</button>
+        </div>
+
+        {!isDone && <StepBar/>}
+
+        <div style={{flex:1,display:"flex",flexDirection:"column",
+          overflow:"hidden",minHeight:0}}>
+          {step===1   && <Step1/>}
+          {step===2   && <Step2/>}
+          {step===3   && <Step3/>}
+          {step===3.5 && <StepPayment/>}
+          {step===4   && <Step4/>}
+          {isDone     && <StepDone/>}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATUS BAR — real time, network, battery
+══════════════════════════════════════════════════════════════════════════════ */
+const StatusBar = ({ dark }) => {
+  const [time,    setTime]    = useState("")
+  const [battery, setBattery] = useState(null)   // { level, charging }
+  const [network, setNetwork] = useState("WIFI")  // WIFI | 4G | 3G | 2G | offline
+
+  // Real clock
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      const h = now.getHours().toString().padStart(2,"0")
+      const m = now.getMinutes().toString().padStart(2,"0")
+      setTime(`${h}:${m}`)
+    }
+    tick()
+    const id = setInterval(tick, 10000) // update every 10s
+    return () => clearInterval(id)
+  }, [])
+
+  // Real battery (supported in Chrome/Android)
+  useEffect(() => {
+    if (navigator.getBattery) {
+      navigator.getBattery().then(bat => {
+        const update = () => setBattery({
+          level: Math.round(bat.level * 100),
+          charging: bat.charging,
+        })
+        update()
+        bat.addEventListener("levelchange",   update)
+        bat.addEventListener("chargingchange", update)
+        return () => {
+          bat.removeEventListener("levelchange",   update)
+          bat.removeEventListener("chargingchange", update)
+        }
+      }).catch(() => setBattery(null))
+    }
+  }, [])
+
+  // Real network type
+  useEffect(() => {
+    const detect = () => {
+      if (!navigator.onLine) { setNetwork("OFFLINE"); return }
+      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+      if (!conn) {
+        // Fallback — check if page loaded via localhost or https (likely wifi)
+        setNetwork("WIFI")
+        return
+      }
+      const type = conn.type || ""
+      const eff  = conn.effectiveType || ""
+      if (type === "wifi" || type === "ethernet") {
+        setNetwork("WIFI")
+      } else if (eff === "4g") {
+        setNetwork("4G")
+      } else if (eff === "3g") {
+        setNetwork("3G")
+      } else if (eff === "2g" || eff === "slow-2g") {
+        setNetwork("2G")
+      } else {
+        setNetwork("WIFI")
+      }
+    }
+    detect()
+    window.addEventListener("online",  detect)
+    window.addEventListener("offline", detect)
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    if (conn) conn.addEventListener("change", detect)
+    return () => {
+      window.removeEventListener("online",  detect)
+      window.removeEventListener("offline", detect)
+      if (conn) conn.removeEventListener("change", detect)
+    }
+  }, [])
+
+  const textColor = dark ? WHITE : NAVY
+  const bgColor   = dark ? "#000" : WHITE
+
+  // Battery icon
+  const BatteryIcon = () => {
+    if (!battery) return null
+    const pct   = battery.level
+    const color = pct <= 20 ? RED : pct <= 50 ? "#f39c12" : GREEN
+    const width = Math.max(2, Math.round(pct / 100 * 16))
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:2}}>
+        {battery.charging && (
+          <span style={{fontSize:9,color:GREEN}}>⚡</span>
+        )}
+        <div style={{width:20,height:10,borderRadius:2,
+          border:`1.5px solid ${textColor}`,position:"relative",
+          display:"flex",alignItems:"center",paddingLeft:1}}>
+          <div style={{width:width,height:6,borderRadius:1,background:color}}/>
+          {/* Battery tip */}
+          <div style={{position:"absolute",right:-3,top:"50%",
+            transform:"translateY(-50%)",width:2,height:5,
+            background:textColor,borderRadius:"0 1px 1px 0"}}/>
+        </div>
+        <span style={{fontSize:9,fontWeight:700,color:textColor}}>{pct}%</span>
+      </div>
+    )
+  }
+
+  // Network icon
+  const NetworkIcon = () => {
+    if (network === "WIFI") return (
+      <svg width="14" height="12" viewBox="0 0 24 20" fill={textColor}>
+        <path d="M1 7.5C5.5 3 10.5 1 12 1s6.5 2 11 6.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <path d="M4.5 11.5C7 9 10 8 12 8s5 1 7.5 3.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <path d="M8 15.5C9.5 14 11 13.5 12 13.5s2.5.5 4 2" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+        <circle cx="12" cy="19" r="1.5" fill={textColor}/>
+      </svg>
+    )
+    if (network === "OFFLINE") return (
+      <span style={{fontSize:10,color:RED,fontWeight:700}}>✕</span>
+    )
+    // 4G / 3G / 2G bars
+    const bars = network === "4G" ? 4 : network === "3G" ? 3 : 2
+    return (
+      <div style={{display:"flex",alignItems:"flex-end",gap:1.5}}>
+        {[1,2,3,4].map(b=>(
+          <div key={b} style={{
+            width:3,borderRadius:1,
+            height:3+b*2,
+            background:b<=bars?textColor:`${textColor}40`,
+          }}/>
+        ))}
+        <span style={{fontSize:9,fontWeight:700,color:textColor,marginLeft:2}}>{network}</span>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{
+      background:bgColor,
+      padding:"8px 16px 6px",
+      display:"flex",justifyContent:"space-between",alignItems:"center",
+      flexShrink:0,
+    }}>
+      <span style={{fontSize:13,fontWeight:700,color:textColor,
+        fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.02em"}}>
+        {time}
+      </span>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <NetworkIcon/>
+        <BatteryIcon/>
+      </div>
+    </div>
+  )
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ROOT
+══════════════════════════════════════════════════════════════════════════════ */
+export default function App(){
+  const [activeTab,setActiveTab]=useState("foryou")
+  const [session,  setSession]  =useState(null)
+  const [profile,  setProfile]  =useState(null)
+  const [showAuth, setShowAuth] =useState(false)
+  const [fixtures, setFixtures] =useState([])
+  const [booting,  setBooting]  =useState(true)
+  const [showMembership,setShowMembership]=useState(false)
+
+  useEffect(()=>{
+    // Handle email confirmation redirect — Supabase puts token in URL hash
+    supabase.auth.getSession().then(({data:{session}})=>{
+      setSession(session)
+      setBooting(false)
+    })
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      setSession(session)
+      // SIGNED_IN fires when email link is clicked and user lands on site
+      if(event==="SIGNED_IN"&&session){
+        setActiveTab("profile")
+        setShowAuth(false)
+      }
+    })
+    return ()=>subscription.unsubscribe()
+  },[])
+
+  useEffect(()=>{
+    if(session){
+      supabase.from("profiles").select("*").eq("id",session.user.id).single()
+        .then(({data})=>{ if(data) setProfile(data) })
+    } else { setProfile(null) }
+  },[session])
+
+  useEffect(()=>{
+    supabase.from("fixtures").select("*").order("match_date")
+      .then(({data})=>{ if(data) setFixtures(data) })
+  },[])
+
+  const handleLogout=async()=>{
+    await supabase.auth.signOut()
+    setSession(null); setProfile(null); setActiveTab("foryou")
+  }
+
+  const goToAuth=()=>setShowAuth(true)
+
+  if(booting) return (
+    <div style={{minHeight:"100vh",minHeight:"100dvh",
+      background:`linear-gradient(160deg,${NAVY},#0a1020)`,
+      display:"flex",alignItems:"center",justifyContent:"center"}}>
+      <Logo size={60}/>
+    </div>
+  )
+
+  const HEADER_LABELS={foryou:null,calendar:"CALENDAR",clips:null,store:"STORE",profile:null}
+  const hdr=HEADER_LABELS[activeTab]
+
+  const renderScreen=()=>{
+    if(showMembership) return null // rendered as overlay
+    if(showAuth) return <AuthScreen
+      onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}}
+      onGuest={()=>setShowAuth(false)}/>
+    switch(activeTab){
+      case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
+      case "calendar": return <CalendarScreen/>
+      case "clips":    return <ClipsScreen/>
+      case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)}/>
+      case "profile":  return <ProfileScreen session={session} profile={profile}
+                         onLogout={handleLogout} goToAuth={goToAuth}
+                         openMembership={()=>setShowMembership(true)}/>
+      default:         return <ForYouScreen goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
+    }
+  }
+
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&display=swap');
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        ::-webkit-scrollbar{display:none}
+        html{-webkit-text-size-adjust:100%}
+        body{
+          background:#0D1B3E;
+          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+          min-height:100vh;
+          min-height:100dvh;
+          -webkit-font-smoothing:antialiased;
+        }
+        input,button{font-family:inherit}
+        input{-webkit-appearance:none;appearance:none}
+
+        .app-root{
+          display:flex;
+          flex-direction:column;
+          min-height:100vh;
+          min-height:100dvh;
+          background:linear-gradient(160deg,${NAVY} 0%,#0a1020 100%);
+        }
+        .app-strip{
+          padding:14px 16px 8px;
+          display:flex;
+          align-items:center;
+          gap:12px;
+        }
+        .phone-frame{
+          flex:1;
+          display:flex;
+          flex-direction:column;
+          background:#fff;
+          overflow:hidden;
+          position:relative;
+          /* Critical: prevents content from pushing nav off screen */
+          min-height:0;
+        }
+        @media(min-width:520px){
+          .app-root{
+            align-items:center;
+            padding:16px 0 24px;
+          }
+          .app-strip,.phone-frame{
+            width:100%;
+            max-width:430px;
+          }
+          .phone-frame{
+            flex:none;
+            height:760px;
+            border-radius:38px;
+            border:7px solid #1c1c1c;
+            box-shadow:0 28px 70px rgba(0,0,0,0.75),inset 0 0 0 1px rgba(255,255,255,0.07);
+          }
+        }
+        /* On real mobile, full height with nav always visible */
+        @media(max-width:519px){
+          .app-root{
+            min-height:100vh;
+            min-height:100dvh;
+          }
+          .phone-frame{
+            flex:1;
+            min-height:0;
+            border-radius:0;
+          }
+        }
+      `}</style>
+
+      <div className="app-root">
+        <div className="app-strip">
+          <Logo size={38}/>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:"clamp(15px,4.5vw,18px)",color:WHITE,letterSpacing:"0.05em"}}>
+              VILLAREAL FC
+            </div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+              fontSize:"clamp(9px,2.5vw,11px)",color:GOLD,fontWeight:700,letterSpacing:"0.05em"}}>
+              "THE HONEY BADGERS" · BRFA DIVISION ONE
+            </div>
+          </div>
+        </div>
+
+        <div className="phone-frame" style={{position:"relative"}}>
+          {/* Status bar — real time, network, battery */}
+          <StatusBar dark={activeTab==="clips"||showAuth}/>
+
+          {/* Section header */}
+          {hdr&&!showAuth&&(
+            <div style={{padding:"8px 16px",background:WHITE,display:"flex",
+              alignItems:"center",justifyContent:"space-between",
+              borderBottom:`1px solid #eee`,flexShrink:0}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <Logo size={28}/>
+                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:"clamp(16px,5vw,20px)",color:NAVY}}>{hdr}</span>
+              </div>
+
+            </div>
+          )}
+
+          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
+            {renderScreen()}
+          </div>
+
+          {!showAuth&&<BottomNav active={activeTab} setActive={setActiveTab}/>}
+
+          <div style={{background:activeTab==="clips"?"#000":WHITE,
+            paddingBottom:4,paddingTop:3,display:"flex",justifyContent:"center",flexShrink:0}}>
+            <div style={{width:110,height:4,background:"#ddd",borderRadius:2}}/>
+          </div>
+
+          {/* Membership modal — inside phone frame, slides over content, nav stays visible */}
+          {showMembership&&(
+            <div style={{position:"absolute",inset:0,zIndex:200,
+              display:"flex",flexDirection:"column",
+              background:"rgba(0,0,0,0.6)",
+              borderRadius:"inherit"}}>
+              <MembershipPage
+                session={session}
+                onClose={()=>setShowMembership(false)}
+                onSuccess={()=>{
+                  setShowMembership(false)
+                  setActiveTab("profile")
+                }}
+              />
+            </div>
+          )}
+        </div>
+
+        <div style={{textAlign:"center",padding:"10px 0 0",display:"none"}}
+          className="desktop-footer">
+          <span style={{fontFamily:"'Barlow Condensed',sans-serif",color:"#444",
+            fontSize:11,letterSpacing:"0.06em"}}>
+            BOTETI REGIONAL FA · DIVISION ONE 2026/27
+          </span>
+        </div>
+      </div>
+    </>
+  )
+}
