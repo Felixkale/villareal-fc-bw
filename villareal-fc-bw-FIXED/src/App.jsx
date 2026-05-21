@@ -1176,7 +1176,11 @@ const ClipsScreen = () => {
 ══════════════════════════════════════════════════════════════════════════════ */
 const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
   const [subTab,      setSubTab]      = useState("shop")
-  const [shopView,    setShopView]    = useState("home")   // home|collection|product|cart|checkout
+ const [shopView,    setShopView]    = useState("home")   // home|collection|product|cart|checkout
+  const storeScrollRef = useRef(null)
+  useEffect(() => {
+    if (storeScrollRef.current) storeScrollRef.current.scrollTop = 0
+  }, [shopView, subTab])
   const [activeCol,   setActiveCol]   = useState(null)
   const [selProduct,  setSelProduct]  = useState(null)
   const [selSize,     setSelSize]     = useState("")
