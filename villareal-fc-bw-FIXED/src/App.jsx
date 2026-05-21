@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
 
 /* ── BRAND ─────────────────────────────────────────────────────────────────── */
@@ -32,7 +32,6 @@ const STANDINGS = [
 ]
 
 const SQUAD = [
-  // FIRST TEAM (22+)
   {name:"Buzwani Batsholeng",      dob:"1987-11-11",id:"007100M97",team:"FIRST TEAM"},
   {name:"Piwane Batsholeng",       dob:"1987-04-05",id:"007357M87",team:"FIRST TEAM"},
   {name:"Boineelo Better Bofedile",dob:"2000-12-05",id:"031712M00",team:"FIRST TEAM"},
@@ -62,7 +61,6 @@ const SQUAD = [
   {name:"Mort Pagiwa",             dob:"1998-11-11",id:"013430M98",team:"FIRST TEAM"},
   {name:"Koketso Sakaio",          dob:"2000-04-12",id:"025831M00",team:"FIRST TEAM"},
   {name:"Patrick Xhabee",          dob:"1993-05-02",id:"028470M93",team:"FIRST TEAM"},
-  // U21 (18-21)
   {name:"Ngatangue Daniel",        dob:"2005-08-26",id:"031714M05",team:"U21"},
   {name:"Kaone Kabelo",            dob:"2006-01-04",id:"036663M06",team:"U21"},
   {name:"Karabo Michaelson Keikabile",dob:"2007-01-12",id:"018202M07",team:"U21"},
@@ -75,11 +73,17 @@ const SQUAD = [
   {name:"Rankhubu Rankhubu",       dob:"2006-05-21",id:"033707M06",team:"U21"},
   {name:"Mac Fred Senyashuba",     dob:"2007-03-10",id:"033703M07",team:"U21"},
   {name:"Emmanuel Virore",         dob:"2007-03-01",id:"034354M07",team:"U21"},
-  // U17 (under 18)
   {name:"Aniesta Lefa Kgagamedi",  dob:"2008-10-18",id:"036718M08",team:"U17"},
   {name:"Theo Motlhodi",           dob:"2009-08-07",id:"036662M09",team:"U17"},
 ]
 
+/* Real player surnames from squad for jersey customization */
+const REAL_PLAYER_NAMES = SQUAD
+  .filter(p => p.team === "FIRST TEAM")
+  .map(p => {
+    const parts = p.name.trim().split(" ")
+    return parts[parts.length - 1].toUpperCase()
+  })
 
 const MONTHLY_PRICE = 20
 const YEARLY_PRICE  = 200
@@ -111,7 +115,7 @@ const Pill = ({ label, bg = GOLD, color = NAVY, small }) => (
   }}>{label}</span>
 )
 
-const Btn = ({ children, onClick, bg=GOLD, color=NAVY, disabled, style:sx={}, sx:sxExtra={} }) => (
+const Btn = ({ children, onClick, bg=GOLD, color=NAVY, disabled, style:sx={} }) => (
   <button onClick={onClick} disabled={disabled} style={{
     width:"100%", padding:"14px", background:disabled?"#ccc":bg,
     border:"none", borderRadius:12, cursor:disabled?"not-allowed":"pointer",
@@ -250,7 +254,7 @@ const DonateModal = ({ onClose, userEmail }) => {
               WebkitAppearance:"none" }}/>
         </div>
         {error && <div style={{color:RED,fontSize:13,marginBottom:12,fontWeight:600}}>{error}</div>}
-        <Btn onClick={handleDonate} disabled={loading} sx={{marginBottom:8}}>
+        <Btn onClick={handleDonate} disabled={loading} style={{marginBottom:8}}>
           {loading?"PROCESSING...":`DONATE P${finalAmt||"—"} NOW ❤️`}
         </Btn>
         <button onClick={onClose} style={{ width:"100%", padding:"12px", background:"none",
@@ -275,7 +279,6 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
     <div style={{flex:1,overflowY:"auto",background:WHITE,WebkitOverflowScrolling:"touch"}}>
       {showDonate && <DonateModal onClose={()=>setShowDonate(false)} userEmail={userEmail}/>}
 
-      {/* Header */}
       <div style={{padding:"12px 14px 10px",display:"flex",alignItems:"center",
         justifyContent:"space-between",borderBottom:`1px solid #eee`}}>
         <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
@@ -299,7 +302,6 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
         </button>
       </div>
 
-      {/* Quick links */}
       <div style={{padding:"10px 12px",display:"flex",gap:8,overflowX:"auto",borderBottom:`1px solid #eee`}}>
         {["🔥 LAST GAME","👕 SHOP","🤝 MEMBERSHIP"].map(l=>(
           <button key={l} style={{background:"none",border:`1.5px solid #ddd`,borderRadius:20,
@@ -309,7 +311,6 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
         ))}
       </div>
 
-      {/* Hero card */}
       <div style={{margin:"12px 12px 10px",borderRadius:14,overflow:"hidden",
         boxShadow:"0 4px 20px rgba(0,0,0,0.13)"}}>
         <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
@@ -332,7 +333,6 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
         </div>
       </div>
 
-      {/* Donate */}
       <div style={{margin:"0 12px 12px"}}>
         <button onClick={()=>setShowDonate(true)} style={{
           width:"100%",padding:"clamp(12px,3.5vw,15px) 16px",
@@ -359,7 +359,6 @@ const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
         </button>
       </div>
 
-      {/* News */}
       <div style={{padding:"0 12px 20px"}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
           <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
@@ -401,25 +400,20 @@ const CalendarScreen = () => {
   const [subTab,setSubTab]=useState("calendar")
   const [fixtures,setFixtures]=useState([])
   const [playerPhotos,setPlayerPhotos]=useState({})
+  const [uploading, setUploading]=useState(null)
   useEffect(()=>{
     supabase.from("fixtures").select("*").order("match_date")
       .then(({data})=>{ if(data) setFixtures(data) })
   },[])
 
-  // Load player photos from Supabase Storage
   useEffect(()=>{
     const loadPhotos = async () => {
-      const { data } = await supabase.storage.from("player-photos").list("", {
-        limit: 100, offset: 0
-      })
+      const { data } = await supabase.storage.from("player-photos").list("", { limit: 100, offset: 0 })
       if (!data) return
       const photoMap = {}
       data.forEach(file => {
-        // File names are BFA IDs e.g. "007100M97.jpg"
         const bfaId = file.name.replace(/\.(jpg|jpeg|png|webp)$/i, "")
-        const { data: urlData } = supabase.storage
-          .from("player-photos")
-          .getPublicUrl(file.name)
+        const { data: urlData } = supabase.storage.from("player-photos").getPublicUrl(file.name)
         if (urlData?.publicUrl) photoMap[bfaId] = urlData.publicUrl
       })
       setPlayerPhotos(photoMap)
@@ -486,7 +480,6 @@ const CalendarScreen = () => {
             )
           })}
         </div>
-        {/* Fixture list */}
         <div style={{padding:"4px 12px 16px"}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
             color:MGRAY,letterSpacing:"0.06em",marginBottom:8}}>UPCOMING FIXTURES</div>
@@ -575,18 +568,10 @@ const CalendarScreen = () => {
     return age
   }
 
-  const formatDob = (dob) => {
-    const d = new Date(dob)
-    return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})
-  }
-
   const filteredPlayers = SQUAD.filter(p => p.team === teamFilter)
-
-  // Photos loaded from Supabase Storage (uploaded via admin panel)
 
   const PlayersTab=()=>(
     <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-
       <div style={{
         display:"grid",
         gridTemplateColumns:"repeat(3,1fr)",
@@ -611,8 +596,6 @@ const CalendarScreen = () => {
                 opacity:isUploading?0.7:1,
                 transition:"opacity 0.15s",
               }}>
-
-              {/* Photo area */}
               <div style={{
                 height:90,
                 background:`linear-gradient(160deg,${NAVY},#1a3060)`,
@@ -638,8 +621,6 @@ const CalendarScreen = () => {
                     <span style={{fontSize:14,opacity:0.6}}>📷</span>
                   </div>
                 )}
-
-                {/* Status badge top-left */}
                 <div style={{position:"absolute",top:5,left:5,
                   background:hasPhoto?GREEN:"rgba(0,0,0,0.45)",
                   borderRadius:4,padding:"2px 5px",
@@ -647,8 +628,6 @@ const CalendarScreen = () => {
                   fontFamily:"'Barlow Condensed',sans-serif"}}>
                   {isUploading?"⏳":hasPhoto?"✓ PHOTO":"📷 ADD"}
                 </div>
-
-                {/* Team badge top-right */}
                 <div style={{position:"absolute",top:5,right:5,
                   background:p.team==="FIRST TEAM"?NAVY:p.team==="U21"?GREEN:"#e67e22",
                   borderRadius:4,padding:"2px 5px",
@@ -657,8 +636,6 @@ const CalendarScreen = () => {
                   {p.team==="FIRST TEAM"?"1ST":p.team}
                 </div>
               </div>
-
-              {/* Name & info */}
               <div style={{padding:"7px 8px 8px",background:WHITE}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",
                   fontSize:9,color:MGRAY,fontWeight:600,lineHeight:1,marginBottom:1,
@@ -683,21 +660,17 @@ const CalendarScreen = () => {
           )
         })}
       </div>
-
-      {/* Summary footer */}
       <div style={{padding:"12px 14px",background:"#f8f9fb",
         borderTop:`1px solid #eee`,textAlign:"center"}}>
         <span style={{fontSize:11,color:MGRAY}}>
-          {Object.keys(playerPhotos).filter(k=>playerPhotos[k]).length} of {SQUAD.length} players have photos · Managed via Admin Panel
+          {Object.keys(playerPhotos).filter(k=>playerPhotos[k]).length} of {SQUAD.length} players have photos
         </span>
       </div>
     </div>
   )
 
-
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,overflow:"hidden"}}>
-      {/* Sub-tab bar + team dropdown */}
       <div style={{display:"flex",alignItems:"center",borderBottom:`1px solid #eee`,
         padding:"0 14px",gap:0,flexShrink:0}}>
         <div style={{display:"flex",flex:1,gap:14,overflowX:"auto"}}>
@@ -711,7 +684,6 @@ const CalendarScreen = () => {
             }}>{t}</button>
           ))}
         </div>
-        {/* Team dropdown — only show on Players tab */}
         {subTab==="players"&&(
           <div style={{position:"relative",flexShrink:0,marginLeft:8}}>
             <button
@@ -772,28 +744,28 @@ const CalendarScreen = () => {
 ══════════════════════════════════════════════════════════════════════════════ */
 const CLIPS_DATA = [
   {
-    id:1, player:"KGOPOTSO NTSHELE", num:"#9",
+    id:1, player:"KGOSI LULANE", num:"#19",
     tag:"GOAL ⚽", desc:"Stunning header vs Stone Breakers! 🦡🔥 #BRFA #TheHoneyBadgers #Villareal",
     likes:4300, comments:187, shares:1200,
     bg:"linear-gradient(180deg,#0a1428 0%,#0D1B3E 40%,#1a3060 100%)",
     accent:"#F5C518",
   },
   {
-    id:2, player:"OABILE TSHOSA", num:"#10",
+    id:2, player:"TEFHO MAKOBELA", num:"#22",
     tag:"ASSIST 🎯", desc:"Vision of a true playmaker 👏 #MidfielderOfTheSeason #HoneyBadgers",
     likes:3100, comments:94, shares:890,
     bg:"linear-gradient(180deg,#0a1a0a 0%,#0d2a18 40%,#1a4a2a 100%)",
     accent:"#27AE60",
   },
   {
-    id:3, player:"NEO MOSEKI", num:"#11",
+    id:3, player:"MAATLA KERETELETSWE", num:"#15",
     tag:"SKILL 🔥", desc:"No one can stop him on the wing 💨 #Speedy #Villareal #BRFA",
     likes:2700, comments:63, shares:650,
     bg:"linear-gradient(180deg,#1a0a00 0%,#2a1200 40%,#3a1a00 100%)",
     accent:"#F5C518",
   },
   {
-    id:4, player:"LEFIKA DITLHARE", num:"#17",
+    id:4, player:"PATRICK XHABEE", num:"#29",
     tag:"GOAL ⚽", desc:"Long range rocket! The crowd goes wild 🚀 #TopBin #HoneyBadgers",
     likes:1900, comments:41, shares:430,
     bg:"linear-gradient(180deg,#1a001a 0%,#2a0a2a 40%,#1a0830 100%)",
@@ -808,7 +780,6 @@ const ClipsScreen = () => {
   const containerRef = useRef(null)
   const clipRefs     = useRef([])
 
-  // Track which clip is visible using IntersectionObserver
   useEffect(() => {
     const observers = []
     clipRefs.current.forEach((el, i) => {
@@ -834,7 +805,6 @@ const ClipsScreen = () => {
       flex:1, display:"flex", flexDirection:"column",
       background:"#000", overflow:"hidden", position:"relative",
     }}>
-      {/* ── TOP NAV ── */}
       <div style={{
         position:"absolute", top:0, left:0, right:0, zIndex:30,
         display:"flex", alignItems:"center", justifyContent:"center",
@@ -861,7 +831,6 @@ const ClipsScreen = () => {
         </div>
       </div>
 
-      {/* ── SCROLL CONTAINER ── */}
       <div
         ref={containerRef}
         style={{
@@ -897,7 +866,6 @@ const ClipsScreen = () => {
                 overflow:"hidden",
               }}>
 
-              {/* BG watermark */}
               <div style={{
                 position:"absolute", inset:0,
                 display:"flex", alignItems:"center", justifyContent:"center",
@@ -906,7 +874,6 @@ const ClipsScreen = () => {
                 <Logo size={"clamp(220px,65vw,320px)"}/>
               </div>
 
-              {/* Centre content */}
               <div style={{
                 flex:1,
                 display:"flex",
@@ -915,7 +882,6 @@ const ClipsScreen = () => {
                 justifyContent:"center",
                 padding:"clamp(60px,15vw,80px) clamp(60px,18vw,90px) clamp(100px,20vw,130px)",
               }}>
-                {/* Tag */}
                 <div style={{
                   background: clip.accent, color:NAVY,
                   fontFamily:"'Barlow Condensed',sans-serif",
@@ -926,10 +892,8 @@ const ClipsScreen = () => {
                   {clip.tag}
                 </div>
 
-                {/* Logo */}
                 <Logo size={"clamp(72px,20vw,100px)"}/>
 
-                {/* Player name */}
                 <div style={{
                   marginTop:"clamp(12px,3vw,18px)",
                   fontFamily:"'Barlow Condensed',sans-serif",
@@ -956,7 +920,6 @@ const ClipsScreen = () => {
                   {clip.num}
                 </div>
 
-                {/* Progress dots */}
                 <div style={{display:"flex",gap:6,marginTop:"clamp(16px,4vw,24px)"}}>
                   {CLIPS_DATA.map((_,di) => (
                     <div key={di} style={{
@@ -970,7 +933,6 @@ const ClipsScreen = () => {
                 </div>
               </div>
 
-              {/* ── BOTTOM OVERLAY ── */}
               <div style={{
                 position:"absolute", bottom:0, left:0, right:0,
                 background:"linear-gradient(to top,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.3) 60%,transparent 100%)",
@@ -978,10 +940,7 @@ const ClipsScreen = () => {
                 display:"flex", alignItems:"flex-end", justifyContent:"space-between",
                 gap:12,
               }}>
-
-                {/* Left — user info + caption */}
                 <div style={{flex:1, minWidth:0}}>
-                  {/* User row */}
                   <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
                     <div style={{
                       width:"clamp(32px,8vw,40px)", height:"clamp(32px,8vw,40px)",
@@ -1026,7 +985,6 @@ const ClipsScreen = () => {
                     </button>
                   </div>
 
-                  {/* Caption */}
                   <div style={{
                     fontSize:"clamp(11px,3vw,13px)",
                     color:"rgba(255,255,255,0.8)",
@@ -1039,7 +997,6 @@ const ClipsScreen = () => {
                     {clip.desc}
                   </div>
 
-                  {/* Music bar */}
                   <div style={{
                     display:"flex", alignItems:"center", gap:6, marginTop:8,
                   }}>
@@ -1054,13 +1011,11 @@ const ClipsScreen = () => {
                   </div>
                 </div>
 
-                {/* Right — action buttons */}
                 <div style={{
                   display:"flex", flexDirection:"column",
                   alignItems:"center", gap:"clamp(14px,4vw,20px)",
                   flexShrink:0, paddingBottom:"clamp(4px,1vw,8px)",
                 }}>
-                  {/* Like */}
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                     <button
                       onClick={() => toggleLike(clip.id)}
@@ -1081,14 +1036,9 @@ const ClipsScreen = () => {
                         {isLiked ? "❤️" : "🤍"}
                       </span>
                     </button>
-                    <span style={{
-                      color:WHITE,
-                      fontSize:"clamp(10px,2.5vw,12px)",
-                      fontWeight:700,
-                    }}>{likesCnt}</span>
+                    <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:700}}>{likesCnt}</span>
                   </div>
 
-                  {/* Comment */}
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                     <button style={{
                       background:"rgba(255,255,255,0.12)",
@@ -1100,14 +1050,9 @@ const ClipsScreen = () => {
                     }}>
                       <span style={{fontSize:"clamp(18px,5vw,24px)"}}>💬</span>
                     </button>
-                    <span style={{
-                      color:WHITE,
-                      fontSize:"clamp(10px,2.5vw,12px)",
-                      fontWeight:700,
-                    }}>{fmtNum(clip.comments)}</span>
+                    <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:700}}>{fmtNum(clip.comments)}</span>
                   </div>
 
-                  {/* Share */}
                   <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                     <button style={{
                       background:"rgba(255,255,255,0.12)",
@@ -1119,14 +1064,9 @@ const ClipsScreen = () => {
                     }}>
                       <span style={{fontSize:"clamp(18px,5vw,24px)"}}>↗</span>
                     </button>
-                    <span style={{
-                      color:WHITE,
-                      fontSize:"clamp(10px,2.5vw,12px)",
-                      fontWeight:700,
-                    }}>{fmtNum(clip.shares)}</span>
+                    <span style={{color:WHITE,fontSize:"clamp(10px,2.5vw,12px)",fontWeight:700}}>{fmtNum(clip.shares)}</span>
                   </div>
 
-                  {/* Spinning record */}
                   <div style={{
                     width:"clamp(36px,9vw,44px)",
                     height:"clamp(36px,9vw,44px)",
@@ -1136,15 +1076,11 @@ const ClipsScreen = () => {
                     display:"flex",alignItems:"center",justifyContent:"center",
                     animation:"spin 4s linear infinite",
                   }}>
-                    <div style={{
-                      width:"40%",height:"40%",borderRadius:"50%",
-                      background:"#111",
-                    }}/>
+                    <div style={{width:"40%",height:"40%",borderRadius:"50%",background:"#111"}}/>
                   </div>
                 </div>
               </div>
 
-              {/* Scroll hint — only on first clip */}
               {i===0&&(
                 <div style={{
                   position:"absolute",bottom:"clamp(100px,22vw,130px)",
@@ -1161,7 +1097,6 @@ const ClipsScreen = () => {
         })}
       </div>
 
-      {/* CSS for spin animation */}
       <style>{`
         @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
         div::-webkit-scrollbar { display:none }
@@ -1170,35 +1105,384 @@ const ClipsScreen = () => {
   )
 }
 
+/* ══════════════════════════════════════════════════════════════════════════════
+   CUSTOMIZE JERSEY SCREEN  (dedicated standalone section)
+══════════════════════════════════════════════════════════════════════════════ */
+const ADULT_SIZES  = ["XS","S","M","L","XL","XXL","XXXL","XXXXL"]
+const KIDS_SIZES   = ["2Y","3Y","4Y","5Y","6Y","7Y","8Y","9Y","10Y","11Y","12Y","13Y","14Y","15Y","16Y"]
+const KIT_OPTIONS  = [
+  { id:"home",  label:"Home Kit 2026/27",  emoji:"🟡", desc:"Navy & Gold",   price:280 },
+  { id:"away",  label:"Away Kit 2026/27",  emoji:"⬜", desc:"White & Gold",  price:260 },
+  { id:"third", label:"Training Kit",      emoji:"💪", desc:"Performance",   price:180 },
+  { id:"gk",    label:"GK Kit 2026/27",    emoji:"🧤", desc:"Limited Ed.",   price:300 },
+]
+
+const CustomizeScreen = ({ cart, setCart, openMembership, profile }) => {
+  const isMember = !!profile?.is_member
+  const memberDisc = isMember ? 5 : 0
+
+  const [kit,        setKit]        = useState("home")
+  const [variant,    setVariant]    = useState("Men")
+  const [sizeGroup,  setSizeGroup]  = useState("adult")
+  const [size,       setSize]       = useState("")
+  const [nameMode,   setNameMode]   = useState("player") // player | custom
+  const [selPlayer,  setSelPlayer]  = useState("")
+  const [customName, setCustomName] = useState("")
+  const [number,     setNumber]     = useState("")
+  const [addedMsg,   setAddedMsg]   = useState(false)
+
+  const selectedKit = KIT_OPTIONS.find(k => k.id === kit)
+  const finalPrice  = Math.round((selectedKit?.price || 280) * (1 - memberDisc/100))
+  const displayName = nameMode === "player" ? selPlayer : customName
+  const displayNum  = number || "10"
+  const sizes       = sizeGroup === "adult" ? ADULT_SIZES : KIDS_SIZES
+
+  const handleAddToCart = () => {
+    if (!size) return
+    const item = {
+      id: `custom_${kit}_${size}_${Date.now()}`,
+      cartId: `custom_${kit}_${size}_${Date.now()}`,
+      name: `${selectedKit.label} (Custom)`,
+      collection: kit,
+      quality: "Stadium",
+      price: selectedKit.price,
+      variant,
+      size,
+      customName: nameMode === "custom" ? customName : "",
+      player: nameMode === "player" ? selPlayer : "",
+      number,
+      qty: 1,
+    }
+    setCart(prev => [...prev, item])
+    setAddedMsg(true)
+    setTimeout(() => setAddedMsg(false), 2000)
+  }
+
+  /* Jersey preview SVG */
+  const JerseyPreview = () => {
+    const kitColors = {
+      home:  { body: NAVY,    accent: GOLD,    text: GOLD },
+      away:  { body: "#f5f5f5", accent: GOLD,  text: NAVY },
+      third: { body: "#1a4a1a", accent: "#4ade80", text: "#4ade80" },
+      gk:    { body: "#3a0090", accent: "#a78bfa", text: "#a78bfa" },
+    }
+    const c = kitColors[kit] || kitColors.home
+    return (
+      <svg viewBox="0 0 200 220" width="100%" style={{maxHeight:200,display:"block",margin:"0 auto"}}>
+        {/* Body */}
+        <path d="M50 50 L20 80 L35 90 L35 190 L165 190 L165 90 L180 80 L150 50 L130 65 Q100 75 70 65 Z"
+          fill={c.body} stroke={c.accent} strokeWidth="3"/>
+        {/* Collar */}
+        <path d="M85 52 Q100 65 115 52" fill="none" stroke={c.accent} strokeWidth="3"/>
+        {/* Left sleeve */}
+        <path d="M50 50 L20 80 L35 90 L55 75 Z" fill={c.accent} stroke={c.accent} strokeWidth="1"/>
+        {/* Right sleeve */}
+        <path d="M150 50 L180 80 L165 90 L145 75 Z" fill={c.accent} stroke={c.accent} strokeWidth="1"/>
+        {/* Stripe */}
+        <path d="M35 110 L165 110" stroke={c.accent} strokeWidth="2" opacity="0.5"/>
+        {/* Name */}
+        {displayName && (
+          <text x="100" y="150" textAnchor="middle" fontFamily="'Barlow Condensed',sans-serif"
+            fontWeight="900" fontSize="16" fill={c.text} letterSpacing="2">
+            {displayName.slice(0,12).toUpperCase()}
+          </text>
+        )}
+        {/* Number */}
+        <text x="100" y="180" textAnchor="middle" fontFamily="'Barlow Condensed',sans-serif"
+          fontWeight="900" fontSize="28" fill={c.text}>
+          {displayNum}
+        </text>
+      </svg>
+    )
+  }
+
+  return (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
+      {/* Header */}
+      <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+        padding:"16px 16px 14px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:26,color:WHITE,lineHeight:1}}>CUSTOMIZE YOUR JERSEY</div>
+        <div style={{fontSize:12,color:"#aab4cc",marginTop:3}}>
+          Real Villareal FC players · Your name · Your number
+        </div>
+        {isMember && (
+          <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:5,
+            background:`${GREEN}33`,border:`1px solid ${GREEN}66`,
+            borderRadius:6,padding:"3px 10px",fontSize:11,color:GREEN,fontWeight:700}}>
+            🦡 Member discount: 5% off
+          </div>
+        )}
+      </div>
+
+      <div style={{padding:"14px 14px 20px",display:"flex",flexDirection:"column",gap:16}}>
+
+        {/* Jersey Live Preview */}
+        <div style={{background:WHITE,borderRadius:16,padding:"16px",
+          boxShadow:"0 2px 12px rgba(0,0,0,0.08)",overflow:"hidden"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:12}}>
+            LIVE PREVIEW
+          </div>
+          <JerseyPreview/>
+          <div style={{textAlign:"center",marginTop:8}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:22,color:NAVY}}>
+              P{finalPrice}
+              {isMember && <span style={{fontSize:12,color:MGRAY,textDecoration:"line-through",
+                marginLeft:6}}>P{selectedKit?.price}</span>}
+            </div>
+            {isMember && <div style={{fontSize:11,color:GREEN,fontWeight:700}}>🦡 Member price</div>}
+          </div>
+        </div>
+
+        {/* Kit selection */}
+        <div style={{background:WHITE,borderRadius:14,padding:"14px",
+          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
+            1. SELECT KIT
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+            {KIT_OPTIONS.map(k=>(
+              <button key={k.id} onClick={()=>setKit(k.id)} style={{
+                padding:"10px 12px",borderRadius:10,
+                border:`2px solid ${kit===k.id?NAVY:"#e5e7eb"}`,
+                background:kit===k.id?"#eef1f8":WHITE,
+                cursor:"pointer",textAlign:"left",
+                WebkitTapHighlightColor:"transparent",minHeight:54,
+              }}>
+                <div style={{fontSize:20,marginBottom:2}}>{k.emoji}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:12,color:NAVY,lineHeight:1.2}}>{k.label}</div>
+                <div style={{fontSize:10,color:MGRAY}}>{k.desc} · P{k.price}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Variant & size group */}
+        <div style={{background:WHITE,borderRadius:14,padding:"14px",
+          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
+            2. CUT & SIZE
+          </div>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            {["Men","Women","Junior"].map(v=>(
+              <button key={v} onClick={()=>{setVariant(v);setSizeGroup(v==="Junior"?"kids":"adult");setSize("")}}
+                style={{
+                  flex:1,padding:"9px 0",borderRadius:9,
+                  border:`2px solid ${variant===v?NAVY:"#e5e7eb"}`,
+                  background:variant===v?NAVY:WHITE,
+                  color:variant===v?WHITE:NAVY,
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,
+                  cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                }}>
+                {v}
+              </button>
+            ))}
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+            fontSize:10,color:MGRAY,marginBottom:8,letterSpacing:"0.06em"}}>SIZE</div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {sizes.map(sz=>(
+              <button key={sz} onClick={()=>setSize(sz)} style={{
+                minWidth:42,height:42,borderRadius:8,
+                border:`2px solid ${size===sz?NAVY:"#e5e7eb"}`,
+                background:size===sz?NAVY:WHITE,
+                color:size===sz?WHITE:NAVY,
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:12,cursor:"pointer",padding:"0 6px",
+                WebkitTapHighlightColor:"transparent",
+              }}>{sz}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Name & Number */}
+        <div style={{background:WHITE,borderRadius:14,padding:"14px",
+          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
+            3. NAME & NUMBER
+          </div>
+
+          {/* Toggle: player name or custom */}
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            <button onClick={()=>setNameMode("player")} style={{
+              flex:1,padding:"10px 0",borderRadius:9,
+              border:`2px solid ${nameMode==="player"?GOLD:"#e5e7eb"}`,
+              background:nameMode==="player"?`${GOLD}22`:WHITE,
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
+              color:nameMode==="player"?NAVY:MGRAY,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent",
+            }}>
+              ⚽ Player Name
+            </button>
+            <button onClick={()=>setNameMode("custom")} style={{
+              flex:1,padding:"10px 0",borderRadius:9,
+              border:`2px solid ${nameMode==="custom"?GOLD:"#e5e7eb"}`,
+              background:nameMode==="custom"?`${GOLD}22`:WHITE,
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
+              color:nameMode==="custom"?NAVY:MGRAY,cursor:"pointer",
+              WebkitTapHighlightColor:"transparent",
+            }}>
+              ✏️ Your Name
+            </button>
+          </div>
+
+          {nameMode === "player" ? (
+            <>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:10,color:MGRAY,marginBottom:8,letterSpacing:"0.06em"}}>
+                SELECT VILLAREAL FC PLAYER
+              </div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {REAL_PLAYER_NAMES.map(pn=>(
+                  <button key={pn} onClick={()=>setSelPlayer(pn)} style={{
+                    padding:"6px 12px",borderRadius:8,
+                    border:`2px solid ${selPlayer===pn?NAVY:"#e5e7eb"}`,
+                    background:selPlayer===pn?NAVY:WHITE,
+                    color:selPlayer===pn?WHITE:NAVY,
+                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,
+                    cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                  }}>{pn}</button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                fontSize:10,color:MGRAY,marginBottom:6,letterSpacing:"0.06em"}}>
+                YOUR NAME (MAX 12 CHARS)
+              </div>
+              <input
+                placeholder="e.g. MOTSWEDI"
+                value={customName}
+                onChange={e=>setCustomName(e.target.value.toUpperCase().slice(0,12))}
+                style={{width:"100%",padding:"11px 12px",borderRadius:9,
+                  border:`2px solid ${customName?GOLD:"#e5e7eb"}`,fontSize:15,
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  letterSpacing:"0.08em",outline:"none",boxSizing:"border-box",
+                  marginBottom:4}}/>
+            </>
+          )}
+
+          <div style={{marginTop:12}}>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+              fontSize:10,color:MGRAY,marginBottom:6,letterSpacing:"0.06em"}}>
+              SQUAD NUMBER (1–99)
+            </div>
+            <input
+              type="number"
+              placeholder="e.g. 10"
+              value={number}
+              min={1} max={99}
+              onChange={e=>setNumber(e.target.value.slice(0,2))}
+              style={{width:"100%",padding:"11px 12px",borderRadius:9,
+                border:`2px solid ${number?GOLD:"#e5e7eb"}`,fontSize:20,
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                textAlign:"center",outline:"none",boxSizing:"border-box",
+                WebkitAppearance:"none"}}/>
+          </div>
+        </div>
+
+        {/* Member upsell */}
+        {!isMember && (
+          <div onClick={openMembership}
+            style={{background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
+              borderRadius:12,padding:"12px 16px",
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+              cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+            <div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:13,color:NAVY}}>🦡 JOIN HONEY BADGER — SAVE 5% ON JERSEYS</div>
+              <div style={{fontSize:11,color:"rgba(13,27,62,0.7)",marginTop:2}}>
+                Plus exclusive promo codes & early access
+              </div>
+            </div>
+            <div style={{background:NAVY,color:GOLD,fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:900,fontSize:11,padding:"5px 10px",borderRadius:6,flexShrink:0}}>
+              JOIN →
+            </div>
+          </div>
+        )}
+
+        {/* Add to cart */}
+        <div>
+          <button
+            onClick={handleAddToCart}
+            disabled={!size || (nameMode==="player"&&!selPlayer) || (nameMode==="custom"&&!customName.trim())}
+            style={{
+              width:"100%",padding:"16px",
+              background:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
+                ?"#e5e7eb":NAVY,
+              border:"none",borderRadius:12,
+              cursor:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
+                ?"not-allowed":"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:17,
+              color:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
+                ?"#aaa":WHITE,
+              minHeight:54,WebkitTapHighlightColor:"transparent",
+              boxShadow:size?"0 4px 14px rgba(13,27,62,0.3)":"none",
+              transition:"all 0.15s",letterSpacing:"0.04em",
+              position:"relative",
+            }}>
+            {addedMsg
+              ? "✓ ADDED TO CART!"
+              : !size
+                ? "SELECT A SIZE TO CONTINUE"
+                : (nameMode==="player"&&!selPlayer)
+                  ? "SELECT A PLAYER NAME"
+                  : (nameMode==="custom"&&!customName.trim())
+                    ? "ENTER YOUR NAME"
+                    : `ADD CUSTOM JERSEY — P${finalPrice}`}
+          </button>
+          {addedMsg && (
+            <div style={{textAlign:"center",fontSize:12,color:GREEN,marginTop:6,fontWeight:700}}>
+              ✓ Check your cart to complete your order!
+            </div>
+          )}
+        </div>
+
+      </div>
+    </div>
+  )
+}
 
 /* ══════════════════════════════════════════════════════════════════════════════
    STORE
 ══════════════════════════════════════════════════════════════════════════════ */
 const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
-  const [subTab,      setSubTab]      = useState("shop")
- const [shopView,    setShopView]    = useState("home")   // home|collection|product|cart|checkout
-  const storeScrollRef = useRef(null)
-  useEffect(() => {
-    if (storeScrollRef.current) storeScrollRef.current.scrollTop = 0
-  }, [shopView, subTab])
+  const [subTab, setSubTab] = useState("shop")
+  // FIX: each view tracks its own scroll with a ref, reset on view change
+  const [shopView, setShopView] = useState("home")
+  const scrollAreaRef = useRef(null)
   const [activeCol,   setActiveCol]   = useState(null)
   const [selProduct,  setSelProduct]  = useState(null)
   const [selSize,     setSelSize]     = useState("")
   const [selVariant,  setSelVariant]  = useState("Men")
   const [selQuality,  setSelQuality]  = useState("Stadium")
   const [customName,  setCustomName]  = useState("")
-  const [customMode,  setCustomMode]  = useState("player")  // player|name
+  const [customMode,  setCustomMode]  = useState("player")
   const [selPlayer,   setSelPlayer]   = useState("")
   const [cart,        setCart]        = useState([])
   const [promoCode,   setPromoCode]   = useState("")
   const [promoInput,  setPromoInput]  = useState("")
-  const [promoMsg,    setPromoMsg]    = useState(null)  // {ok,text,pct}
-  const [checkStep,   setCheckStep]   = useState(1)     // 1=review,2=payment,3=done
+  const [promoMsg,    setPromoMsg]    = useState(null)
+  const [checkStep,   setCheckStep]   = useState(1)
   const [payMethod,   setPayMethod]   = useState("")
   const [payRef,      setPayRef]      = useState("")
   const isMember = !!profile?.is_member
 
-  /* ─── PROMO CODES ─── */
+  // FIX: scroll to top whenever view or tab changes
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = 0
+    }
+  }, [shopView, subTab])
+
   const PROMOS = {
     "HONEYBADGER10": { pct:10, label:"10% off — Honey Badger exclusive!", memberOnly:false },
     "FARMERSDAY":    { pct:15, label:"15% off — Boteti West Farmers Day!", memberOnly:false },
@@ -1218,25 +1502,15 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     setPromoMsg({ok:true,text:promo.label,pct:promo.pct})
   }
 
-  /* ─── PRICING HELPERS ─── */
   const memberDisc   = isMember ? 5 : 0
   const promoDisc    = promoMsg?.ok ? promoMsg.pct : 0
-  const totalDisc    = Math.min(memberDisc + promoDisc, 40)  // cap 40%
+  const totalDisc    = Math.min(memberDisc + promoDisc, 40)
 
   const discPrice = (p) => Math.round(p * (1 - totalDisc/100))
   const cartSubtotal = cart.reduce((s,i)=>s + discPrice(i.price) * i.qty, 0)
   const cartQty      = cart.reduce((s,i)=>s+i.qty, 0)
   const savedTotal   = cart.reduce((s,i)=>s+(i.price - discPrice(i.price))*i.qty, 0)
 
-  /* ─── SQUAD PLAYERS ─── */
-  const PLAYERS = [
-    "BATSHOLENG","MOSWEU","GAOLAPE","PULE","SERETSE","MOGAPI","RADIBE",
-    "KGOSI","MOTLHABI","MOAGI","TSHOSA","NTSHELE","MOSEKI","DITLHARE"
-  ]
-
-  /* ─── CATALOGUE ─── */
-  const ADULT_SIZES = ["XS","S","M","L","XL","XXL","XXXL","XXXXL"]
-  const KIDS_SIZES  = ["2Y","3Y","4Y","5Y","6Y","7Y","8Y","9Y","10Y","11Y","12Y","13Y","14Y","15Y","16Y"]
   const VARIANTS    = ["Men","Women","Junior"]
   const QUALITIES   = ["Stadium","Match"]
 
@@ -1310,7 +1584,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
 
   const ALL_PRODUCTS = COLLECTIONS.flatMap(c=>c.products.map(p=>({...p,collection:c.id,collLabel:c.label})))
 
-  /* ─── ADD TO CART ─── */
   const handleAddToCart = (product, size, variant, quality, customization={}) => {
     const item = {
       ...product, size, variant, quality,
@@ -1324,7 +1597,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     setSelSize("")
   }
 
-  /* ─── SIZE GUIDE ─── */
   const SIZE_GUIDE = [
     {s:"XS",chest:"80–84",waist:"70–74",hip:"86–90"},
     {s:"S", chest:"88–92",waist:"78–82",hip:"94–98"},
@@ -1335,9 +1607,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     {s:"XXXL",chest:"128–132",waist:"118–122",hip:"134–138"},
     {s:"XXXXL",chest:"136–140",waist:"126–130",hip:"142–146"},
   ]
-  const [showSizeGuide, setShowSizeGuide] = useState(false)
 
-  /* ─── HERO BANNERS for auto-scroll ─── */
   const [heroBanner, setHeroBanner] = useState(0)
   const BANNERS = [
     {title:"2026/27 KITS",sub:"Home & Away now available",emoji:"⚽",bg:`linear-gradient(135deg,${NAVY},#1a3060)`,accent:GOLD,cta:"SHOP KITS →",col:"home2627"},
@@ -1349,15 +1619,10 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     return ()=>clearInterval(id)
   },[])
 
-  /* ══════════════════════════════════════════════════════════
-     VIEWS
-  ══════════════════════════════════════════════════════════ */
-
   /* ── STORE HOME ── */
   const HomeView = () => (
-    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
+    <div ref={scrollAreaRef} style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
 
-      {/* ── HERO BANNER (auto-rotating) ── */}
       <div style={{position:"relative",overflow:"hidden",flexShrink:0}}>
         <div style={{background:BANNERS[heroBanner].bg,
           padding:"clamp(24px,6vw,36px) clamp(16px,4vw,20px) clamp(20px,5vw,28px)",
@@ -1365,28 +1630,22 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
           minHeight:"clamp(160px,40vw,200px)",display:"flex",flexDirection:"column",
           justifyContent:"center"}}>
           <div style={{position:"absolute",right:-20,top:-20,opacity:0.06}}><Logo size={200}/></div>
-          <div style={{fontSize:"clamp(36px,10vw,52px)",marginBottom:8}}>
-            {BANNERS[heroBanner].emoji}
-          </div>
+          <div style={{fontSize:"clamp(36px,10vw,52px)",marginBottom:8}}>{BANNERS[heroBanner].emoji}</div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
             fontSize:"clamp(22px,7vw,32px)",color:BANNERS[heroBanner].accent,
-            lineHeight:1,letterSpacing:"0.04em"}}>
-            {BANNERS[heroBanner].title}
-          </div>
+            lineHeight:1,letterSpacing:"0.04em"}}>{BANNERS[heroBanner].title}</div>
           <div style={{fontSize:"clamp(11px,3vw,13px)",color:"rgba(255,255,255,0.7)",
             marginTop:4,marginBottom:14}}>{BANNERS[heroBanner].sub}</div>
           <button onClick={()=>{setActiveCol(BANNERS[heroBanner].col);setShopView("collection")}}
             style={{alignSelf:"flex-start",background:BANNERS[heroBanner].accent,
               border:"none",borderRadius:8,padding:"8px 18px",minHeight:38,
               fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:"clamp(11px,3vw,13px)",
-              color:BANNERS[heroBanner].accent===WHITE?NAVY:NAVY,
+              fontSize:"clamp(11px,3vw,13px)",color:NAVY,
               cursor:"pointer",WebkitTapHighlightColor:"transparent",
               letterSpacing:"0.06em"}}>
             {BANNERS[heroBanner].cta}
           </button>
         </div>
-        {/* Dots */}
         <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
           display:"flex",gap:5}}>
           {BANNERS.map((_,i)=>(
@@ -1398,38 +1657,53 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
         </div>
       </div>
 
-      {/* ── MEMBER BANNER ── */}
+      {/* Customize Jersey CTA — prominent banner */}
+      <div style={{margin:"12px 12px 0"}}>
+        <button onClick={()=>{setSubTab("customize");setShopView("home")}} style={{
+          width:"100%",padding:"14px 16px",
+          background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
+          border:"none",borderRadius:14,
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+          cursor:"pointer",WebkitTapHighlightColor:"transparent",
+          boxShadow:"0 4px 14px rgba(245,197,24,0.35)",minHeight:60,
+        }}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <span style={{fontSize:28}}>👕</span>
+            <div style={{textAlign:"left"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:16,color:NAVY}}>CUSTOMIZE YOUR JERSEY</div>
+              <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:1}}>
+                Pick a player name · your number · your kit
+              </div>
+            </div>
+          </div>
+          <div style={{background:NAVY,color:GOLD,fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:900,fontSize:12,padding:"6px 12px",borderRadius:8,flexShrink:0}}>
+            BUILD →
+          </div>
+        </button>
+      </div>
+
       {!isMember&&(
         <div onClick={openMembership}
-          style={{margin:"12px 12px 0",background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
+          style={{margin:"10px 12px 0",background:`linear-gradient(135deg,${NAVY},#1a3060)`,
             borderRadius:12,padding:"12px 16px",
             display:"flex",alignItems:"center",justifyContent:"space-between",
             cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
           <div>
             <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:14,color:NAVY}}>🦡 JOIN HONEY BADGER — SAVE 5% ON ALL ORDERS</div>
-            <div style={{fontSize:11,color:"rgba(13,27,62,0.7)",marginTop:2}}>
+              fontSize:13,color:GOLD}}>🦡 JOIN HONEY BADGER — SAVE 5% ON ALL ORDERS</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginTop:2}}>
               Plus exclusive promo codes & early access
             </div>
           </div>
-          <div style={{background:NAVY,color:GOLD,fontFamily:"'Barlow Condensed',sans-serif",
+          <div style={{background:GOLD,color:NAVY,fontFamily:"'Barlow Condensed',sans-serif",
             fontWeight:900,fontSize:11,padding:"5px 10px",borderRadius:6,flexShrink:0}}>
             JOIN →
           </div>
         </div>
       )}
-      {isMember&&(
-        <div style={{margin:"12px 12px 0",background:`${GREEN}18`,
-          border:`1px solid ${GREEN}44`,borderRadius:12,padding:"10px 14px",
-          display:"flex",alignItems:"center",gap:8}}>
-          <span style={{fontSize:16}}>🦡</span>
-          <div style={{fontSize:12,color:GREEN,fontWeight:700}}>
-            Honey Badger member — you save 5% on all purchases!
-          </div>
-        </div>
-      )}
 
-      {/* ── COLLECTIONS GRID ── */}
       <div style={{padding:"16px 12px 8px"}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
           fontSize:"clamp(16px,5vw,20px)",color:NAVY,marginBottom:12,
@@ -1445,31 +1719,24 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                 padding:"10px 12px",position:"relative",
                 boxShadow:"0 4px 14px rgba(0,0,0,0.15)",
                 WebkitTapHighlightColor:"transparent",
-                gridColumn: i===0?"1/3":undefined,  // first card full width
+                gridColumn: i===0?"1/3":undefined,
               }}>
-              <div style={{position:"absolute",top:-10,right:-10,opacity:0.08,fontSize:80,
-                lineHeight:1}}>{col.emoji}</div>
+              <div style={{position:"absolute",top:-10,right:-10,opacity:0.08,fontSize:80,lineHeight:1}}>{col.emoji}</div>
               {col.new&&(
                 <div style={{position:"absolute",top:10,right:10,
                   background:GREEN,color:WHITE,fontSize:9,fontWeight:900,
                   padding:"2px 7px",borderRadius:4,
-                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
-                  NEW
-                </div>
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>NEW</div>
               )}
               <div style={{fontSize:"clamp(20px,5vw,26px)",marginBottom:4}}>{col.emoji}</div>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(14px,4vw,18px)",color:col.accent||WHITE,lineHeight:1}}>
-                {col.label}
-              </div>
-              <div style={{fontSize:"clamp(9px,2.5vw,11px)",color:"rgba(255,255,255,0.6)",
-                marginTop:2}}>{col.sublabel}</div>
+                fontSize:"clamp(14px,4vw,18px)",color:col.accent||WHITE,lineHeight:1}}>{col.label}</div>
+              <div style={{fontSize:"clamp(9px,2.5vw,11px)",color:"rgba(255,255,255,0.6)",marginTop:2}}>{col.sublabel}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── BEST SELLERS ── */}
       <div style={{padding:"4px 12px 20px"}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
           fontSize:"clamp(16px,5vw,20px)",color:NAVY,marginBottom:12,
@@ -1501,7 +1768,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                   P{discPrice(p.price)}
                   {totalDisc>0&&<span style={{fontSize:10,color:MGRAY,textDecoration:"line-through",marginLeft:4}}>P{p.price}</span>}
                 </div>
-                {isMember&&<div style={{fontSize:9,color:GREEN,fontWeight:700,marginTop:1}}>🦡 Member price</div>}
               </div>
             </div>
           ))}
@@ -1515,8 +1781,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     const col = COLLECTIONS.find(c=>c.id===activeCol)
     if(!col) return null
     return (
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        {/* Header */}
+      <div ref={scrollAreaRef} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{background:col.bg,padding:"16px 14px 14px",flexShrink:0}}>
           <button onClick={()=>setShopView("home")}
             style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,
@@ -1537,7 +1802,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
             {col.desc}
           </div>
         </div>
-        {/* Products */}
         <div style={{flex:1,overflowY:"auto",padding:"12px",
           background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
@@ -1559,9 +1823,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                     <div style={{position:"absolute",bottom:8,right:8,
                       background:RED,color:WHITE,fontSize:8,fontWeight:900,
                       padding:"2px 6px",borderRadius:3,
-                      fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      -{totalDisc}%
-                    </div>
+                      fontFamily:"'Barlow Condensed',sans-serif"}}>-{totalDisc}%</div>
                   )}
                 </div>
                 <div style={{padding:"10px 10px 12px"}}>
@@ -1569,13 +1831,10 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                     fontSize:"clamp(11px,3vw,13px)",color:NAVY,lineHeight:1.2,marginBottom:6,
                     overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
                   <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                    fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>
-                    P{discPrice(p.price)}
-                  </div>
+                    fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>P{discPrice(p.price)}</div>
                   {p.price!==discPrice(p.price)&&(
                     <div style={{fontSize:10,color:MGRAY,textDecoration:"line-through"}}>P{p.price}</div>
                   )}
-                  {isMember&&<div style={{fontSize:9,color:GREEN,fontWeight:700,marginTop:2}}>🦡 Member price applied</div>}
                   <div style={{fontSize:10,color:MGRAY,marginTop:2}}>{p.quality} · {p.variants.join(" / ")}</div>
                 </div>
               </div>
@@ -1595,8 +1854,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     const [showGuide, setShowGuide] = useState(false)
 
     return (
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
-        {/* Header */}
+      <div ref={scrollAreaRef} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
         <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
           padding:"14px 16px",flexShrink:0,
           display:"flex",alignItems:"center",gap:10}}>
@@ -1611,7 +1869,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
         </div>
 
         <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-          {/* Product hero */}
           <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
             height:"clamp(160px,40vw,200px)",position:"relative",
             display:"flex",alignItems:"center",justifyContent:"center"}}>
@@ -1630,47 +1887,23 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
           </div>
 
           <div style={{padding:"16px 14px"}}>
-            {/* Name & price */}
             <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
               fontSize:"clamp(18px,5vw,22px)",color:NAVY,lineHeight:1,marginBottom:8}}>
               {p.name}
             </div>
-            <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
+            <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:14}}>
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
                 fontSize:"clamp(26px,8vw,34px)",color:NAVY}}>P{finalPrice}</span>
               {p.price!==finalPrice&&(
                 <span style={{fontSize:14,color:MGRAY,textDecoration:"line-through"}}>P{p.price}</span>
               )}
             </div>
-            {/* Discount badges */}
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
-              {isMember&&(
-                <div style={{background:`${GREEN}18`,border:`1px solid ${GREEN}44`,
-                  borderRadius:6,padding:"3px 9px",fontSize:11,color:GREEN,fontWeight:700}}>
-                  🦡 Member -5%
-                </div>
-              )}
-              {promoMsg?.ok&&(
-                <div style={{background:`${GOLD}22`,border:`1px solid ${GOLD}`,
-                  borderRadius:6,padding:"3px 9px",fontSize:11,color:GOLD2,fontWeight:700}}>
-                  🎟 Promo -{promoDisc}%
-                </div>
-              )}
-              {totalDisc>0&&(
-                <div style={{background:`${RED}18`,border:`1px solid ${RED}44`,
-                  borderRadius:6,padding:"3px 9px",fontSize:11,color:RED,fontWeight:700}}>
-                  Save P{p.price-finalPrice}
-                </div>
-              )}
-            </div>
 
             {/* Quality selector */}
-            {QUALITIES.length>0&&p.variants[0]!=="Junior"&&(
+            {p.variants[0]!=="Junior"&&(
               <>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-                  QUALITY
-                </div>
+                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>QUALITY</div>
                 <div style={{display:"flex",gap:8,marginBottom:14}}>
                   {QUALITIES.map(q=>(
                     <button key={q} onClick={()=>setSelQuality(q)} style={{
@@ -1688,7 +1921,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </>
             )}
 
-            {/* Variant selector */}
+            {/* Variant */}
             {p.variants.length>1&&(
               <>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
@@ -1708,9 +1941,8 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </>
             )}
 
-            {/* Size selector */}
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
-              marginBottom:8}}>
+            {/* Size */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
                 fontSize:11,color:MGRAY,letterSpacing:"0.08em"}}>SIZE</div>
               <button onClick={()=>setShowGuide(s=>!s)}
@@ -1734,10 +1966,8 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               ))}
             </div>
 
-            {/* Size guide */}
             {showGuide&&(
-              <div style={{background:LGRAY,borderRadius:10,padding:"10px",
-                marginBottom:12,overflowX:"auto"}}>
+              <div style={{background:LGRAY,borderRadius:10,padding:"10px",marginBottom:12,overflowX:"auto"}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
                   fontSize:11,color:NAVY,marginBottom:8}}>SIZE GUIDE (cm)</div>
                 <table style={{borderCollapse:"collapse",fontSize:10,minWidth:280,width:"100%"}}>
@@ -1764,64 +1994,31 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </div>
             )}
 
-            {/* Customization */}
-            {p.tag!=="KIDS"&&p.tag!=="FAN"&&(
-              <div style={{background:LGRAY,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:10}}>
-                  CUSTOMIZE THIS ITEM <span style={{color:MGRAY,fontWeight:600}}>(optional)</span>
+            {/* Want to customise? Redirect to dedicated section */}
+            <div style={{background:`${GOLD}18`,border:`1.5px solid ${GOLD}`,borderRadius:12,
+              padding:"12px 14px",marginBottom:14,
+              display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+              <div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:13,color:NAVY}}>👕 Want your name & number?</div>
+                <div style={{fontSize:11,color:MGRAY,marginTop:2}}>
+                  Use our dedicated Customize section
                 </div>
-                <div style={{display:"flex",gap:6,marginBottom:10}}>
-                  {["player","name"].map(m=>(
-                    <button key={m} onClick={()=>setCustomMode(m)} style={{
-                      flex:1,padding:"8px 0",borderRadius:8,minHeight:38,
-                      background:customMode===m?NAVY:"rgba(255,255,255,0.8)",
-                      border:`1.5px solid ${customMode===m?NAVY:"#ddd"}`,
-                      color:customMode===m?WHITE:NAVY,
-                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                      fontSize:12,cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                    }}>
-                      {m==="player"?"Choose Player":"Add Your Name"}
-                    </button>
-                  ))}
-                </div>
-                {customMode==="player"?(
-                  <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)}
-                    style={{width:"100%",padding:"10px 12px",borderRadius:8,
-                      border:"1.5px solid #ddd",fontSize:13,background:WHITE,
-                      fontFamily:"inherit",outline:"none"}}>
-                    <option value="">Choose player...</option>
-                    {PLAYERS.map(pl=>(
-                      <option key={pl} value={pl}>{pl}</option>
-                    ))}
-                  </select>
-                ):(
-                  <input placeholder="Enter your name or nickname"
-                    value={customName}
-                    onChange={e=>setCustomName(e.target.value.toUpperCase())}
-                    maxLength={12}
-                    style={{width:"100%",padding:"10px 12px",borderRadius:8,
-                      border:`1.5px solid ${customName?GOLD:"#ddd"}`,fontSize:14,
-                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                      letterSpacing:"0.08em",outline:"none",boxSizing:"border-box"}}/>
-                )}
               </div>
-            )}
-
-            {/* Description */}
-            <div style={{fontSize:12,color:MGRAY,lineHeight:1.6,marginBottom:16}}>
-              {COLLECTIONS.find(c=>c.id===p.collection)?.desc}
-              {" "}Season: {p.season}.
+              <button onClick={()=>{setSubTab("customize");setShopView("home")}}
+                style={{background:NAVY,border:"none",borderRadius:8,padding:"7px 12px",
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:11,
+                  color:GOLD,cursor:"pointer",flexShrink:0,
+                  WebkitTapHighlightColor:"transparent"}}>
+                CUSTOMIZE →
+              </button>
             </div>
 
-            {/* Add to cart button */}
             <button
               onClick={()=>{
                 if(!selSize){ return }
                 const q = selQuality==="Match"?p.price+100:p.price
-                handleAddToCart({...p,price:q},selSize,selVariant,selQuality,
-                  {name:customMode==="name"?customName:"",
-                   player:customMode==="player"?selPlayer:""})
+                handleAddToCart({...p,price:q},selSize,selVariant,selQuality,{})
               }}
               disabled={!selSize}
               style={{width:"100%",padding:"16px",minHeight:54,
@@ -1835,48 +2032,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                 ? `ADD TO CART — P${discPrice(selQuality==="Match"?p.price+100:p.price)}`
                 : "SELECT A SIZE TO CONTINUE"}
             </button>
-
-            {!selSize&&(
-              <div style={{textAlign:"center",fontSize:11,color:MGRAY,marginTop:6}}>
-                ↑ Select your size above
-              </div>
-            )}
-
-            {/* Promo code entry */}
-            <div style={{marginTop:16,background:LGRAY,borderRadius:10,
-              padding:"12px 14px"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:8}}>
-                🎟 PROMO CODE
-              </div>
-              <div style={{display:"flex",gap:8}}>
-                <input placeholder="Enter promo code" value={promoInput}
-                  onChange={e=>setPromoInput(e.target.value.toUpperCase())}
-                  style={{flex:1,padding:"9px 12px",borderRadius:8,
-                    border:`1.5px solid ${promoMsg?.ok?GREEN:promoMsg?.ok===false?RED:"#ddd"}`,
-                    fontSize:13,outline:"none",fontFamily:"'Barlow Condensed',sans-serif",
-                    fontWeight:700,letterSpacing:"0.06em"}}/>
-                <button onClick={applyPromo}
-                  style={{background:NAVY,border:"none",borderRadius:8,
-                    padding:"9px 14px",color:WHITE,fontFamily:"'Barlow Condensed',sans-serif",
-                    fontWeight:800,fontSize:12,cursor:"pointer",flexShrink:0,
-                    WebkitTapHighlightColor:"transparent"}}>
-                  APPLY
-                </button>
-              </div>
-              {promoMsg&&(
-                <div style={{marginTop:6,fontSize:11,fontWeight:700,
-                  color:promoMsg.ok?GREEN:RED}}>
-                  {promoMsg.ok?"✓":"✗"} {promoMsg.text}
-                </div>
-              )}
-              {!isMember&&(
-                <div style={{marginTop:6,fontSize:10,color:MGRAY,lineHeight:1.5}}>
-                  🦡 Join Honey Badger membership for exclusive promo codes + 5% discount
-                </div>
-              )}
-            </div>
-
             <div style={{height:20}}/>
           </div>
         </div>
@@ -1886,8 +2041,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
 
   /* ── CART VIEW ── */
   const CartView = () => (
-    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
-      {/* Header */}
+    <div ref={scrollAreaRef} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
       <div style={{background:NAVY,padding:"14px 16px",flexShrink:0,
         display:"flex",alignItems:"center",justifyContent:"space-between"}}>
         <button onClick={()=>setShopView("home")}
@@ -1906,9 +2060,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
             <div style={{fontSize:52,marginBottom:12}}>🛒</div>
             <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
               fontSize:20,color:NAVY,marginBottom:6}}>YOUR CART IS EMPTY</div>
-            <div style={{fontSize:13,color:MGRAY,marginBottom:20}}>
-              Add some items to get started
-            </div>
+            <div style={{fontSize:13,color:MGRAY,marginBottom:20}}>Add some items to get started</div>
             <button onClick={()=>setShopView("home")}
               style={{background:NAVY,border:"none",borderRadius:10,padding:"12px 24px",
                 fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:14,
@@ -1916,7 +2068,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
           </div>
         ):(
           <>
-            {/* Member/promo savings banner */}
             {totalDisc>0&&(
               <div style={{background:`${GREEN}18`,border:`1px solid ${GREEN}44`,
                 borderRadius:10,padding:"10px 14px",marginBottom:12,
@@ -1928,7 +2079,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </div>
             )}
 
-            {/* Cart items */}
             {cart.map((item,i)=>(
               <div key={item.cartId} style={{background:WHITE,borderRadius:12,
                 marginBottom:10,overflow:"hidden",
@@ -1948,6 +2098,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                       {item.variant} · {item.size} · {item.quality}
                       {item.player&&` · ${item.player}`}
                       {item.customName&&` · "${item.customName}"`}
+                      {item.number&&` · #${item.number}`}
                     </div>
                     <div style={{display:"flex",alignItems:"center",
                       justifyContent:"space-between",marginTop:6}}>
@@ -1987,13 +2138,10 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </div>
             ))}
 
-            {/* Promo code in cart */}
             <div style={{background:WHITE,borderRadius:12,padding:"12px 14px",
               marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:8}}>
-                🎟 PROMO CODE
-              </div>
+                fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:8}}>🎟 PROMO CODE</div>
               <div style={{display:"flex",gap:8}}>
                 <input placeholder="Enter code" value={promoInput}
                   onChange={e=>setPromoInput(e.target.value.toUpperCase())}
@@ -2007,14 +2155,12 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                     fontSize:12,cursor:"pointer",flexShrink:0}}>APPLY</button>
               </div>
               {promoMsg&&(
-                <div style={{marginTop:6,fontSize:11,fontWeight:700,
-                  color:promoMsg.ok?GREEN:RED}}>
+                <div style={{marginTop:6,fontSize:11,fontWeight:700,color:promoMsg.ok?GREEN:RED}}>
                   {promoMsg.ok?"✓":"✗"} {promoMsg.text}
                 </div>
               )}
             </div>
 
-            {/* Order summary */}
             <div style={{background:WHITE,borderRadius:12,padding:"14px",
               boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
@@ -2035,23 +2181,15 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               <div style={{display:"flex",justifyContent:"space-between",
                 padding:"10px 0 0",fontSize:16,fontWeight:900,color:NAVY,
                 fontFamily:"'Barlow Condensed',sans-serif"}}>
-                <span>TOTAL</span>
-                <span>P{cartSubtotal}</span>
+                <span>TOTAL</span><span>P{cartSubtotal}</span>
               </div>
-              {savedTotal>0&&(
-                <div style={{background:`${GREEN}18`,borderRadius:6,padding:"6px 10px",
-                  marginTop:8,fontSize:11,color:GREEN,fontWeight:700,textAlign:"center"}}>
-                  🎉 You saved P{savedTotal} on this order!
-                </div>
-              )}
             </div>
           </>
         )}
       </div>
 
       {cart.length>0&&(
-        <div style={{padding:"12px 14px",background:WHITE,
-          borderTop:"1px solid #eee",flexShrink:0}}>
+        <div style={{padding:"12px 14px",background:WHITE,borderTop:"1px solid #eee",flexShrink:0}}>
           <button onClick={()=>setShopView("checkout")}
             style={{width:"100%",padding:"16px",background:NAVY,border:"none",
               borderRadius:12,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
@@ -2060,13 +2198,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               WebkitTapHighlightColor:"transparent"}}>
             CHECKOUT — P{cartSubtotal} →
           </button>
-          {!isMember&&(
-            <div style={{textAlign:"center",fontSize:11,color:MGRAY,marginTop:8}}>
-              🦡 <span onClick={openMembership}
-                style={{color:NAVY,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>
-                Join Honey Badger</span> to save 5% on this order
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -2094,23 +2225,12 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
       setLoading(true)
       try {
         await supabase.from("orders").insert({
-          user_id:    session?.user?.id||null,
-          email,
-          full_name:  name,
-          phone,
-          address,
-          items:      JSON.stringify(cart),
-          subtotal:   cartSubtotal,
-          discount:   savedTotal,
-          total:      cartSubtotal,
-          promo_code: promoCode||null,
-          is_member:  isMember,
-          pay_method: payMethod,
-          pay_ref:    payRef,
-          status:     "pending",
+          user_id:session?.user?.id||null,email,full_name:name,phone,address,
+          items:JSON.stringify(cart),subtotal:cartSubtotal,discount:savedTotal,
+          total:cartSubtotal,promo_code:promoCode||null,is_member:isMember,
+          pay_method:payMethod,pay_ref:payRef,status:"pending",
         })
-        setCheckStep(3)
-        setCart([])
+        setCheckStep(3); setCart([])
       } catch(e){ setErr("Order failed. Please try again.") }
       setLoading(false)
     }
@@ -2125,16 +2245,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
           Thank you! Your order has been received. We'll confirm once payment is verified.
           Delivery: 3–7 working days.
         </div>
-        <div style={{background:LGRAY,borderRadius:12,padding:"14px 16px",
-          marginBottom:20,width:"100%",maxWidth:320,textAlign:"left"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:12,color:NAVY,marginBottom:8}}>ORDER REFERENCE</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:18,color:GOLD2}}>{payRef.toUpperCase()}</div>
-          <div style={{fontSize:11,color:MGRAY,marginTop:4}}>
-            Keep this reference for tracking
-          </div>
-        </div>
         <button onClick={()=>{setShopView("home");setCheckStep(1);setPayMethod("");setPayRef("")}}
           style={{background:NAVY,border:"none",borderRadius:12,padding:"14px 32px",
             fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
@@ -2143,7 +2253,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     )
 
     return (
-      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+      <div ref={scrollAreaRef} style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
         <div style={{background:NAVY,padding:"14px 16px",flexShrink:0,
           display:"flex",alignItems:"center",gap:12}}>
           <button onClick={()=>setShopView("cart")}
@@ -2152,41 +2262,14 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,flexShrink:0}}>
             ← BACK
           </button>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:16,color:WHITE}}>CHECKOUT</div>
-          <div style={{marginLeft:"auto",fontFamily:"'Barlow Condensed',sans-serif",
-            fontWeight:900,fontSize:16,color:GOLD}}>P{cartSubtotal}</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,color:WHITE}}>CHECKOUT</div>
+          <div style={{marginLeft:"auto",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,color:GOLD}}>P{cartSubtotal}</div>
         </div>
 
-        <div style={{flex:1,overflowY:"auto",padding:"14px",
-          background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
-
-          {/* Step indicators */}
-          <div style={{display:"flex",gap:6,marginBottom:16,alignItems:"center",
-            justifyContent:"center"}}>
-            {["Details","Payment","Confirm"].map((s,i)=>(
-              <div key={s} style={{display:"flex",alignItems:"center",gap:6}}>
-                <div style={{width:24,height:24,borderRadius:"50%",
-                  background:checkStep>i+1?GREEN:checkStep===i+1?NAVY:"#ddd",
-                  display:"flex",alignItems:"center",justifyContent:"center"}}>
-                  <span style={{fontSize:10,fontWeight:900,color:WHITE}}>
-                    {checkStep>i+1?"✓":i+1}
-                  </span>
-                </div>
-                <span style={{fontSize:10,color:checkStep===i+1?NAVY:MGRAY,fontWeight:checkStep===i+1?700:400}}>
-                  {s}
-                </span>
-                {i<2&&<div style={{width:16,height:2,background:checkStep>i+1?GREEN:"#ddd",borderRadius:1}}/>}
-              </div>
-            ))}
-          </div>
-
-          {/* Step 1 — Details */}
+        <div style={{flex:1,overflowY:"auto",padding:"14px",background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
           {checkStep===1&&(
-            <div style={{background:WHITE,borderRadius:12,padding:"14px",
-              boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:13,color:NAVY,marginBottom:12}}>DELIVERY DETAILS</div>
+            <div style={{background:WHITE,borderRadius:12,padding:"14px",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,color:NAVY,marginBottom:12}}>DELIVERY DETAILS</div>
               {[
                 {label:"FULL NAME",val:name,set:setName,type:"text",ph:"Your full name"},
                 {label:"EMAIL",val:email,set:setEmail,type:"email",ph:"your@email.com"},
@@ -2206,21 +2289,6 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                     onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
                 </div>
               ))}
-
-              {/* Order summary mini */}
-              <div style={{background:LGRAY,borderRadius:8,padding:"10px 12px",marginBottom:12}}>
-                <div style={{display:"flex",justifyContent:"space-between",
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY}}>
-                  <span>{cartQty} item{cartQty!==1?"s":""}</span>
-                  <span>P{cartSubtotal}</span>
-                </div>
-                {savedTotal>0&&(
-                  <div style={{fontSize:11,color:GREEN,fontWeight:700,marginTop:4}}>
-                    You save P{savedTotal}!
-                  </div>
-                )}
-              </div>
-
               {err&&<div style={{color:RED,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
               <button onClick={()=>{
                 if(!name||!email||!phone){setErr("Please fill in all required fields.");return}
@@ -2234,13 +2302,10 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
             </div>
           )}
 
-          {/* Step 2 — Payment */}
           {checkStep===2&&(
             <div>
-              <div style={{background:WHITE,borderRadius:12,padding:"14px",
-                marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:13,color:NAVY,marginBottom:12}}>PAYMENT METHOD</div>
+              <div style={{background:WHITE,borderRadius:12,padding:"14px",marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,color:NAVY,marginBottom:12}}>PAYMENT METHOD</div>
                 {PAY_METHODS.map(m=>(
                   <div key={m.id} onClick={()=>setPayMethod(m.id)}
                     style={{padding:"12px 14px",borderRadius:10,cursor:"pointer",
@@ -2250,8 +2315,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                       WebkitTapHighlightColor:"transparent"}}>
                     <span style={{fontSize:22}}>{m.icon}</span>
                     <div style={{flex:1}}>
-                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                        fontSize:15,color:NAVY}}>{m.label}</div>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,color:NAVY}}>{m.label}</div>
                       <div style={{fontSize:11,color:MGRAY}}>{m.desc}</div>
                     </div>
                     <div style={{width:20,height:20,borderRadius:"50%",
@@ -2265,79 +2329,40 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
               </div>
 
               {payMethod&&(
-                <div style={{background:WHITE,borderRadius:12,padding:"14px",
-                  marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-                  {/* Amount box */}
-                  <div style={{background:NAVY,borderRadius:10,padding:"14px",
-                    textAlign:"center",marginBottom:14}}>
-                    <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",
-                      fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>
-                      AMOUNT DUE
-                    </div>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                      fontSize:36,color:GOLD}}>P{cartSubtotal}</div>
-                    {savedTotal>0&&<div style={{fontSize:11,color:GREEN,marginTop:4}}>
-                      Saved P{savedTotal}
-                    </div>}
+                <div style={{background:WHITE,borderRadius:12,padding:"14px",marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                  <div style={{background:NAVY,borderRadius:10,padding:"14px",textAlign:"center",marginBottom:14}}>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>AMOUNT DUE</div>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:36,color:GOLD}}>P{cartSubtotal}</div>
                   </div>
-
-                  {/* Instructions */}
-                  <div style={{background:`${GOLD}18`,border:`1px solid ${GOLD}44`,
-                    borderRadius:8,padding:"10px 12px",marginBottom:12}}>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                      fontSize:11,color:GOLD2,marginBottom:6}}>HOW TO PAY</div>
-                    {payMethod==="orange"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
-                      1. Dial <strong>*145#</strong> on your phone<br/>
-                      2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>
-                      3. Reference: <strong>VILLAREAL-ORDER</strong>
-                    </div>}
-                    {payMethod==="myzaka"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
-                      1. Open MyZaka or dial <strong>*167#</strong><br/>
-                      2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>
-                      3. Reference: <strong>VILLAREAL-ORDER</strong>
-                    </div>}
-                    {payMethod==="eft"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
-                      Bank: <strong>FNB Botswana</strong><br/>
-                      Account: <strong>62012345678</strong><br/>
-                      Branch: <strong>282672</strong><br/>
-                      Amount: <strong>P{cartSubtotal}</strong><br/>
-                      Reference: <strong>your email address</strong>
-                    </div>}
+                  <div style={{background:`${GOLD}18`,border:`1px solid ${GOLD}44`,borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:GOLD2,marginBottom:6}}>HOW TO PAY</div>
+                    {payMethod==="orange"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>1. Dial <strong>*145#</strong><br/>2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>3. Reference: <strong>VILLAREAL-ORDER</strong></div>}
+                    {payMethod==="myzaka"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>1. Dial <strong>*167#</strong><br/>2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>3. Reference: <strong>VILLAREAL-ORDER</strong></div>}
+                    {payMethod==="eft"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>Bank: <strong>FNB Botswana</strong><br/>Account: <strong>62012345678</strong><br/>Branch: <strong>282672</strong><br/>Amount: <strong>P{cartSubtotal}</strong></div>}
                   </div>
-
-                  <label style={{fontSize:10,fontWeight:700,color:MGRAY,
-                    fontFamily:"'Barlow Condensed',sans-serif",display:"block",
-                    marginBottom:4,letterSpacing:"0.06em"}}>
-                    PAYMENT REFERENCE / CONFIRMATION NUMBER
-                  </label>
+                  <label style={{fontSize:10,fontWeight:700,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",display:"block",marginBottom:4,letterSpacing:"0.06em"}}>PAYMENT REFERENCE</label>
                   <input placeholder="e.g. TXN123456789" value={payRef}
                     onChange={e=>setPayRef(e.target.value)}
                     style={{width:"100%",padding:"12px",borderRadius:8,
                       border:`1.5px solid ${payRef?GOLD:"#e5e7eb"}`,fontSize:14,
                       outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
-                  <div style={{fontSize:10,color:MGRAY,marginTop:4}}>
-                    Enter the transaction reference from your payment confirmation
-                  </div>
                 </div>
               )}
 
               {err&&<div style={{color:RED,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
-
               <div style={{display:"flex",gap:10}}>
                 <button onClick={()=>{setErr("");setCheckStep(1)}}
-                  style={{flex:1,padding:"13px",background:"#f0f0f0",border:"none",
-                    borderRadius:10,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                    fontSize:14,color:NAVY,cursor:"pointer",minHeight:48}}>
+                  style={{flex:1,padding:"13px",background:"#f0f0f0",border:"none",borderRadius:10,
+                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:14,color:NAVY,cursor:"pointer",minHeight:48}}>
                   ← BACK
                 </button>
                 <button onClick={confirmOrder} disabled={loading||!payMethod||!payRef}
                   style={{flex:2,padding:"13px",
                     background:loading||!payMethod||!payRef?"#e5e7eb":GREEN,
                     border:"none",borderRadius:10,
-                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                    fontSize:14,color:loading||!payMethod||!payRef?"#aaa":WHITE,
-                    cursor:loading||!payMethod||!payRef?"not-allowed":"pointer",
-                    minHeight:48}}>
+                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:14,
+                    color:loading||!payMethod||!payRef?"#aaa":WHITE,
+                    cursor:loading||!payMethod||!payRef?"not-allowed":"pointer",minHeight:48}}>
                   {loading?"PROCESSING...":"CONFIRM ORDER ✓"}
                 </button>
               </div>
@@ -2350,40 +2375,32 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
 
   /* ── TICKETS TAB ── */
   const TicketsTab=()=>(
-    <div style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch",
-      background:"#f5f6fa"}}>
+    <div ref={scrollAreaRef} style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
       {fixtures.filter(f=>!f.result).length===0&&(
-        <div style={{textAlign:"center",padding:"40px 20px",color:MGRAY,fontSize:13}}>
-          No upcoming fixtures.
-        </div>
+        <div style={{textAlign:"center",padding:"40px 20px",color:MGRAY,fontSize:13}}>No upcoming fixtures.</div>
       )}
       {fixtures.filter(f=>!f.result).map(fx=>(
         <div key={fx.id} style={{borderRadius:12,overflow:"hidden",marginBottom:10,
           boxShadow:"0 1px 6px rgba(0,0,0,0.08)",background:WHITE}}>
           <div style={{background:NAVY,padding:"8px 14px",display:"flex",
             justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-              fontSize:13,color:GOLD}}>
-              {new Date(fx.match_date).toLocaleDateString("en-GB",
-                {day:"numeric",month:"short",year:"numeric"}).toUpperCase()}
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:GOLD}}>
+              {new Date(fx.match_date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}).toUpperCase()}
             </span>
             <span style={{background:fx.venue==="HOME"?GREEN:RED,color:WHITE,
               fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
               fontFamily:"'Barlow Condensed',sans-serif"}}>{fx.venue}</span>
           </div>
-          <div style={{padding:"12px 14px",display:"flex",
-            alignItems:"center",justifyContent:"space-between",gap:8}}>
+          <div style={{padding:"12px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
             <div style={{minWidth:0}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:15,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
-                whiteSpace:"nowrap"}}>VILLAREAL FC vs {fx.opponent}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,color:NAVY,
+                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>VILLAREAL FC vs {fx.opponent}</div>
               <div style={{fontSize:11,color:MGRAY,marginTop:2}}>{fx.competition}</div>
             </div>
-            <button style={{background:GOLD,border:"none",borderRadius:8,
-              padding:"9px 16px",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:800,fontSize:13,color:NAVY,cursor:"pointer",
-              flexShrink:0,minHeight:40}}>
-              {fx.venue==="HOME"?`BUY P25${isMember?" (P24)":""}`:  "AWAY"}
+            <button style={{background:GOLD,border:"none",borderRadius:8,padding:"9px 16px",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,color:NAVY,
+              cursor:"pointer",flexShrink:0,minHeight:40}}>
+              {fx.venue==="HOME"?`BUY P25`:"AWAY"}
             </button>
           </div>
         </div>
@@ -2396,17 +2413,14 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
     const [billing,setBilling]=useState("yearly")
     const isYearly=billing==="yearly"
     return (
-      <div style={{overflowY:"auto",flex:1,WebkitOverflowScrolling:"touch"}}>
+      <div ref={scrollAreaRef} style={{overflowY:"auto",flex:1,WebkitOverflowScrolling:"touch"}}>
         <div style={{background:`linear-gradient(160deg,${NAVY},#0a1428)`,
           padding:"clamp(18px,5vw,28px) clamp(14px,4vw,20px)",position:"relative",overflow:"hidden"}}>
           <div style={{opacity:0.07,position:"absolute",right:-20,top:-20}}><Logo size={180}/></div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
             fontSize:"clamp(26px,8vw,40px)",color:WHITE,lineHeight:1}}>THE HONEY BADGER</div>
-          <div style={{fontSize:12,color:"#aaa",marginBottom:16,marginTop:4}}>
-            Villareal FC Premium Membership
-          </div>
-          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:10,
-            padding:3,marginBottom:16}}>
+          <div style={{fontSize:12,color:"#aaa",marginBottom:16,marginTop:4}}>Villareal FC Premium Membership</div>
+          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:10,padding:3,marginBottom:16}}>
             {["monthly","yearly"].map(b=>(
               <button key={b} onClick={()=>setBilling(b)} style={{
                 flex:1,padding:"9px 0",minHeight:42,
@@ -2416,8 +2430,7 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
                 display:"flex",alignItems:"center",justifyContent:"center",gap:6,
                 WebkitTapHighlightColor:"transparent"}}>
                 {b.toUpperCase()}
-                {b==="yearly"&&<span style={{background:GREEN,color:WHITE,fontSize:9,
-                  fontWeight:900,padding:"1px 5px",borderRadius:3}}>SAVE 17%</span>}
+                {b==="yearly"&&<span style={{background:GREEN,color:WHITE,fontSize:9,fontWeight:900,padding:"1px 5px",borderRadius:3}}>SAVE 17%</span>}
               </button>
             ))}
           </div>
@@ -2453,26 +2466,33 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
   }
 
   /* ── ROOT RENDER ── */
+  const showTabBar = ["home","tickets","membership","customize"].includes(shopView) ||
+    ["shop","tickets","membership","customize"].includes(subTab)
+
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,
       overflow:"hidden",position:"relative"}}>
 
-      {/* Tab bar */}
-      {(shopView==="home"||shopView==="tickets"||shopView==="membership")&&(
+      {showTabBar&&(
         <div style={{display:"flex",borderBottom:`1px solid #eee`,
-          padding:"0 14px",gap:14,overflowX:"auto",flexShrink:0,
+          padding:"0 14px",gap:0,overflowX:"auto",flexShrink:0,
           alignItems:"center",background:WHITE,zIndex:10}}>
-          {["shop","tickets","membership"].map(t=>(
-            <button key={t} onClick={()=>{setSubTab(t);if(t==="shop")setShopView("home");else setShopView(t)}} style={{
+          {["shop","customize","tickets","membership"].map(t=>(
+            <button key={t} onClick={()=>{
+              setSubTab(t)
+              if(t==="shop") setShopView("home")
+              else setShopView(t)
+            }} style={{
               background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
-              fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",
-              fontWeight:700,color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
+              fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(10px,2.8vw,12px)",
+              fontWeight:700,color:subTab===t?NAVY:MGRAY,letterSpacing:"0.04em",
               borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
               textTransform:"uppercase",WebkitTapHighlightColor:"transparent",
-              whiteSpace:"nowrap",
-            }}>{t}</button>
+              whiteSpace:"nowrap",marginRight:t!=="membership"?10:0,
+            }}>
+              {t==="customize"?"✂️ CUSTOMIZE":t.toUpperCase()}
+            </button>
           ))}
-          {/* Cart icon */}
           <button onClick={()=>setShopView("cart")}
             style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",
               position:"relative",padding:"8px 0",flexShrink:0,
@@ -2492,21 +2512,21 @@ const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
         </div>
       )}
 
-      {/* Views */}
-      {(shopView==="home"||subTab==="shop")&&shopView==="home"      && <HomeView/>}
-      {shopView==="collection"                                        && <CollectionView/>}
-      {shopView==="product"                                           && <ProductView/>}
-      {shopView==="cart"                                              && <CartView/>}
-      {shopView==="checkout"                                          && <CheckoutView/>}
-      {shopView==="tickets"||subTab==="tickets"&&shopView!=="cart"   ? subTab==="tickets"&&shopView!=="cart"&&shopView!=="checkout"?<TicketsTab/>:null:null}
-      {shopView==="membership"||subTab==="membership"&&shopView==="membership"?<MembershipTab/>:null}
+      {shopView==="home"&&subTab==="shop"         && <HomeView/>}
+      {shopView==="collection"                     && <CollectionView/>}
+      {shopView==="product"                        && <ProductView/>}
+      {shopView==="cart"                           && <CartView/>}
+      {shopView==="checkout"                       && <CheckoutView/>}
+      {subTab==="customize"&&shopView!=="cart"&&shopView!=="checkout" &&
+        <CustomizeScreen cart={cart} setCart={setCart} openMembership={openMembership} profile={profile}/>}
+      {subTab==="tickets"&&shopView!=="cart"&&shopView!=="checkout"   && <TicketsTab/>}
+      {subTab==="membership"&&shopView!=="cart"&&shopView!=="checkout" && <MembershipTab/>}
     </div>
   )
 }
 
-
 /* ══════════════════════════════════════════════════════════════════════════════
-   AUTH — real Supabase auth, secure
+   AUTH
 ══════════════════════════════════════════════════════════════════════════════ */
 const AuthScreen=({onSuccess,onGuest})=>{
   const [mode,setMode]=useState("ask")
@@ -2587,30 +2607,9 @@ const AuthScreen=({onSuccess,onGuest})=>{
           <Btn onClick={()=>{reset();setMode("signup")}} bg={NAVY} color={WHITE}>
             🆕 NO — JOIN THE HONEY BADGERS
           </Btn>
-          <Btn onClick={onGuest} bg={WHITE} color={MGRAY} sx={{border:`1.5px solid #ddd`}}>
+          <Btn onClick={onGuest} bg={WHITE} color={MGRAY} style={{border:`1.5px solid #ddd`}}>
             Continue as Guest
           </Btn>
-        </div>
-
-        <div style={{marginTop:22,borderRadius:14,background:LGRAY,padding:"16px 16px"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:13,color:NAVY,marginBottom:10}}>HONEY BADGER BENEFITS</div>
-          {["10% off match-day tickets","5% off online store",
-            "Early ticket access","Exclusive kit number"].map((b,i)=>(
-            <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-              <span style={{color:GOLD,fontWeight:800,fontSize:15}}>✔</span>
-              <span style={{fontSize:13,color:"#444"}}>{b}</span>
-            </div>
-          ))}
-          <div style={{marginTop:14,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:20,color:NAVY}}>P20<span style={{fontSize:12,fontWeight:600}}>/mo</span></span>
-            <span style={{color:MGRAY,fontSize:11}}>or</span>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:20,color:NAVY}}>P200<span style={{fontSize:12,fontWeight:600}}>/yr</span></span>
-            <span style={{background:GREEN,color:WHITE,fontSize:9,fontWeight:900,
-              padding:"2px 7px",borderRadius:3}}>SAVE 17%</span>
-          </div>
         </div>
       </div>
     </div>
@@ -2668,13 +2667,6 @@ const AuthScreen=({onSuccess,onGuest})=>{
             {isLogin?"Join The Honey Badgers":"Log in"}
           </span>
         </div>
-
-        {!isLogin&&(
-          <div style={{marginTop:16,fontSize:11,color:MGRAY,textAlign:"center",lineHeight:1.7}}>
-            By creating an account you agree to our Terms & Privacy Policy.<br/>
-            Membership: P20/month or P200/year.
-          </div>
-        )}
       </div>
     </div>
   )
@@ -2685,46 +2677,13 @@ const AuthScreen=({onSuccess,onGuest})=>{
 ══════════════════════════════════════════════════════════════════════════════ */
 const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
   const benefits=[
-    {
-      title:"EARLY ACCESS TO TICKETS",
-      sub:"Exclusive 48hr pre-sale",
-      emoji:"🎟️",
-      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
-    },
-    {
-      title:"MATCH DAY TICKETS",
-      sub:"10% off every match",
-      emoji:"⚽",
-      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
-    },
-    {
-      title:"OFFICIAL STORE",
-      sub:"5% off all merch",
-      emoji:"👕",
-      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
-    },
-    {
-      title:"LIVE MATCH STREAMS",
-      sub:"Exclusive access",
-      emoji:"📺",
-      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
-    },
-    {
-      title:"MEMBER KIT NUMBER",
-      sub:"Your exclusive squad number",
-      emoji:"🏆",
-      bg:"linear-gradient(135deg,#3a1a00,#1a0d00)",
-    },
+    {title:"EARLY ACCESS TO TICKETS",sub:"Exclusive 48hr pre-sale",emoji:"🎟️",bg:"linear-gradient(135deg,#1a3a6e,#0d2244)"},
+    {title:"MATCH DAY TICKETS",sub:"10% off every match",emoji:"⚽",bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)"},
+    {title:"OFFICIAL STORE",sub:"5% off all merch",emoji:"👕",bg:"linear-gradient(135deg,#4a2000,#2a1200)"},
+    {title:"LIVE MATCH STREAMS",sub:"Exclusive access",emoji:"📺",bg:"linear-gradient(135deg,#2a0d4a,#180830)"},
+    {title:"MEMBER KIT NUMBER",sub:"Your exclusive squad number",emoji:"🏆",bg:"linear-gradient(135deg,#3a1a00,#1a0d00)"},
   ]
 
-  const settings=[
-    {icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z", label:"Personal Information", action:null},
-    {icon:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0", label:"Notification Settings", action:null},
-    {icon:"M12 2a10 10 0 100 20A10 10 0 0012 2z M8 12h8 M12 8v8", label:"Cookie Settings", action:null},
-    {icon:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z", label:"Are you a member? →", action:openMembership},
-  ]
-
-  /* ── NOT LOGGED IN ── */
   if(!session) return (
     <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
       justifyContent:"center",background:WHITE,padding:"clamp(20px,5vw,32px)"}}>
@@ -2748,83 +2707,43 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
   const isMember=profile?.is_member
 
   return (
-    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch",
-      scrollBehavior:"smooth"}}>
-
-      {/* ── HERO CARD ── */}
-      <div style={{
-        background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 60%,#0d2244 100%)`,
-        padding:"28px 20px 0",position:"relative",overflow:"hidden",
-      }}>
-        {/* Watermark */}
-        <div style={{position:"absolute",right:-30,top:-30,opacity:0.06}}>
-          <Logo size={200}/>
-        </div>
-
-        {/* Avatar */}
+    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
+      <div style={{background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 60%,#0d2244 100%)`,
+        padding:"28px 20px 0",position:"relative",overflow:"hidden"}}>
+        <div style={{position:"absolute",right:-30,top:-30,opacity:0.06}}><Logo size={200}/></div>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:16}}>
-          <div style={{
-            width:88,height:88,borderRadius:"50%",
+          <div style={{width:88,height:88,borderRadius:"50%",
             background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
             border:`3px solid ${GOLD}`,
             display:"flex",alignItems:"center",justifyContent:"center",
-            boxShadow:"0 8px 24px rgba(0,0,0,0.4)",
-            marginBottom:12,position:"relative",
-          }}>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:32,color:NAVY}}>{initials}</span>
-            {/* Online dot */}
+            boxShadow:"0 8px 24px rgba(0,0,0,0.4)",marginBottom:12,position:"relative"}}>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:32,color:NAVY}}>{initials}</span>
             <div style={{position:"absolute",bottom:4,right:4,width:14,height:14,
               borderRadius:"50%",background:"#27AE60",border:`2px solid ${NAVY}`}}/>
           </div>
-
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
             fontSize:"clamp(22px,6vw,28px)",color:WHITE,letterSpacing:"0.04em",
-            textAlign:"center",lineHeight:1}}>
-            {displayName}
-          </div>
-
-          {/* Member badge */}
-          <div style={{
-            marginTop:8,
-            display:"inline-flex",alignItems:"center",gap:6,
+            textAlign:"center",lineHeight:1}}>{displayName}</div>
+          <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:6,
             background:isMember?GOLD:"rgba(255,255,255,0.15)",
-            color:isMember?NAVY:WHITE,
-            padding:"5px 16px",borderRadius:20,
-            fontSize:11,fontWeight:900,
-            fontFamily:"'Barlow Condensed',sans-serif",
-            letterSpacing:"0.12em",
-          }}>
+            color:isMember?NAVY:WHITE,padding:"5px 16px",borderRadius:20,
+            fontSize:11,fontWeight:900,fontFamily:"'Barlow Condensed',sans-serif",
+            letterSpacing:"0.12em"}}>
             {isMember?"🦡 HONEY BADGER MEMBER":"FREE FAN"}
           </div>
         </div>
-
-        {/* Stats row */}
-        <div style={{
-          display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
-          background:"rgba(255,255,255,0.07)",
-          borderRadius:"12px 12px 0 0",
-          padding:"14px 0",marginTop:4,
-        }}>
-          {[
-            {label:"SEASON",    value:"2026/27"},
-            {label:"STATUS",    value:isMember?"MEMBER":"FAN"},
-            {label:"DIVISION",  value:"BRFA D1"},
-          ].map((s,i)=>(
-            <div key={i} style={{textAlign:"center",
-              borderRight:i<2?`1px solid rgba(255,255,255,0.1)`:"none",
-              padding:"0 8px"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(13px,4vw,16px)",color:GOLD,lineHeight:1}}>{s.value}</div>
-              <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",
-                fontFamily:"'Barlow Condensed',sans-serif",
-                letterSpacing:"0.08em",marginTop:3}}>{s.label}</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
+          background:"rgba(255,255,255,0.07)",borderRadius:"12px 12px 0 0",
+          padding:"14px 0",marginTop:4}}>
+          {[{label:"SEASON",value:"2026/27"},{label:"STATUS",value:isMember?"MEMBER":"FAN"},{label:"DIVISION",value:"BRFA D1"}].map((s,i)=>(
+            <div key={i} style={{textAlign:"center",borderRight:i<2?`1px solid rgba(255,255,255,0.1)`:"none",padding:"0 8px"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:"clamp(13px,4vw,16px)",color:GOLD,lineHeight:1}}>{s.value}</div>
+              <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em",marginTop:3}}>{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── UPGRADE BANNER (non-members only) ── */}
       {!isMember&&(
         <div style={{margin:"12px 14px 0"}}>
           <button onClick={openMembership} style={{
@@ -2833,367 +2752,204 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
             border:"none",borderRadius:12,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"space-between",
             WebkitTapHighlightColor:"transparent",
-            boxShadow:"0 4px 14px rgba(245,197,24,0.3)",
-          }}>
+            boxShadow:"0 4px 14px rgba(245,197,24,0.3)"}}>
             <div style={{textAlign:"left"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:16,color:NAVY}}>UPGRADE TO HONEY BADGER</div>
-              <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:1}}>
-                P20/month or P200/year · Save 17%
-              </div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,color:NAVY}}>UPGRADE TO HONEY BADGER</div>
+              <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:1}}>P20/month or P200/year · Save 17%</div>
             </div>
             <div style={{background:NAVY,borderRadius:8,padding:"6px 14px",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:13,color:GOLD,flexShrink:0}}>JOIN →</div>
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:13,color:GOLD,flexShrink:0}}>JOIN →</div>
           </button>
         </div>
       )}
 
-      {/* ── BENEFITS (members only) ── */}
       {isMember&&(
         <div style={{padding:"16px 14px 4px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",
-            alignItems:"center",marginBottom:10}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>BENEFITS</div>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-              fontSize:12,color:NAVY,cursor:"pointer"}}>See all</span>
-          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>BENEFITS</div>
           <div style={{display:"flex",flexDirection:"column",gap:10}}>
             {benefits.map((b,i)=>(
-              <div key={i} style={{
-                display:"flex",alignItems:"center",gap:12,
+              <div key={i} style={{display:"flex",alignItems:"center",gap:12,
                 background:WHITE,borderRadius:14,overflow:"hidden",
-                boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
-              }}>
-                {/* Coloured icon tile */}
-                <div style={{
-                  width:60,height:60,flexShrink:0,
-                  background:b.bg,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:24,
-                }}>
+                boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
+                <div style={{width:60,height:60,flexShrink:0,background:b.bg,
+                  display:"flex",alignItems:"center",justifyContent:"center",fontSize:24}}>
                   {b.emoji}
                 </div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                    fontSize:"clamp(12px,3.5vw,14px)",color:NAVY}}>{b.title}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:"clamp(12px,3.5vw,14px)",color:NAVY}}>{b.title}</div>
                   <div style={{fontSize:12,color:MGRAY,marginTop:2}}>{b.sub}</div>
                 </div>
-                <div style={{paddingRight:14,color:"#ccc",fontSize:20,
-                  fontWeight:300,flexShrink:0}}>···</div>
+                <div style={{paddingRight:14,color:"#ccc",fontSize:20,fontWeight:300,flexShrink:0}}>···</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── ACCOUNT INFO ── */}
       <div style={{margin:"16px 14px 0",background:WHITE,borderRadius:14,
         overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
-        <div style={{padding:"10px 14px 6px",
-          borderBottom:`1px solid #f0f0f0`}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>ACCOUNT</div>
+        <div style={{padding:"10px 14px 6px",borderBottom:`1px solid #f0f0f0`}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>ACCOUNT</div>
         </div>
         <div style={{padding:"12px 14px",borderBottom:`1px solid #f0f0f0`}}>
-          <div style={{fontSize:11,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",
-            fontWeight:600,letterSpacing:"0.06em"}}>EMAIL</div>
-          <div style={{fontSize:14,color:NAVY,marginTop:3,fontWeight:600}}>
-            {session.user.email}
-          </div>
+          <div style={{fontSize:11,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,letterSpacing:"0.06em"}}>EMAIL</div>
+          <div style={{fontSize:14,color:NAVY,marginTop:3,fontWeight:600}}>{session.user.email}</div>
         </div>
         <div style={{padding:"12px 14px"}}>
-          <div style={{fontSize:11,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",
-            fontWeight:600,letterSpacing:"0.06em"}}>MEMBERSHIP</div>
+          <div style={{fontSize:11,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600,letterSpacing:"0.06em"}}>MEMBERSHIP</div>
           <div style={{fontSize:14,color:isMember?GREEN:MGRAY,marginTop:3,fontWeight:600}}>
             {isMember?"🦡 Honey Badger Premium — Active":"Free Fan · Upgrade to Honey Badger"}
           </div>
         </div>
       </div>
 
-      {/* ── SETTINGS ── */}
-      <div style={{margin:"14px 14px 0",background:WHITE,borderRadius:14,
-        overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
-        <div style={{padding:"10px 14px 6px",borderBottom:`1px solid #f0f0f0`}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>SETTINGS</div>
-        </div>
-        {settings.map((s,i)=>(
-          <div key={i}
-            onClick={()=>{ if(s.action) s.action() }}
-            style={{display:"flex",alignItems:"center",gap:14,
-            padding:"14px 14px",minHeight:52,
-            borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
-            cursor:s.action?"pointer":"default",
-            background:s.action?"transparent":"transparent",
-            WebkitTapHighlightColor:"transparent"}}>
-            <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
-              background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <Ico d={s.icon} stroke={NAVY} sw={1.6} size={18}/>
-            </div>
-            <span style={{flex:1,fontSize:14,
-              color:s.action?NAVY:NAVY,
-              fontWeight:s.action?700:500}}>{s.label}</span>
-            <span style={{color:s.action?GOLD2:"#ccc",fontSize:18,fontWeight:s.action?700:400}}>›</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── LEGAL ── */}
-      <div style={{margin:"14px 14px 0",background:WHITE,borderRadius:14,
-        overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
-        <div style={{padding:"10px 14px 6px",borderBottom:`1px solid #f0f0f0`}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>LEGAL</div>
-        </div>
-        {["Privacy Policy","Legal Terms"].map((l,i)=>(
-          <div key={i} style={{display:"flex",alignItems:"center",gap:14,
-            padding:"14px 14px",minHeight:52,cursor:"pointer",
-            borderBottom:i===0?`1px solid #f0f0f0`:"none"}}>
-            <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
-              background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
-              <Ico d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={NAVY} sw={1.6} size={18}/>
-            </div>
-            <span style={{flex:1,fontSize:14,color:NAVY,fontWeight:500}}>{l}</span>
-            <span style={{color:"#ccc",fontSize:18}}>›</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── APP VERSION + LOGOUT ── */}
       <div style={{padding:"24px 0 16px",textAlign:"center"}}>
         <span onClick={onLogout} style={{color:RED,fontWeight:700,fontSize:15,
-          fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer",
-          display:"block",marginBottom:8}}>Log Out</span>
-        <div style={{fontSize:11,color:"#ccc",marginTop:4}}>
-          Villareal FC · Season 2026/27
-        </div>
-        <div style={{fontSize:10,color:"#ddd",marginTop:2}}>
-          APP VERSION 1.0.0
-        </div>
+          fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer",display:"block",marginBottom:8}}>
+          Log Out
+        </span>
+        <div style={{fontSize:11,color:"#ccc",marginTop:4}}>Villareal FC · Season 2026/27</div>
+        <div style={{fontSize:10,color:"#ddd",marginTop:2}}>APP VERSION 1.0.0</div>
       </div>
-
     </div>
   )
 }
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   MEMBERSHIP PAGE — 3 tiers, age pricing, ID verification
+   MEMBERSHIP PAGE
 ══════════════════════════════════════════════════════════════════════════════ */
-
 const PLANS = [
   {
-    id: "free",
-    name: "PREMIUM FREE",
-    tagline: "Get started for free",
-    emoji: "🆓",
-    headerBg: "linear-gradient(135deg,#4a5568,#2d3748)",
-    prices: { adult_monthly:0, adult_yearly:0, youth_monthly:0, youth_yearly:0 },
-    ageGroups: ["infant","youth","adult"],
-    benefits: [
-      "Club news & match updates",
-      "Fixtures & standings",
-      "Clips & highlights",
-      "Early store notifications",
-    ],
-    cta: "JOIN FREE",
-    popular: false,
-    adultsOnly: false,
+    id:"free",name:"PREMIUM FREE",tagline:"Get started for free",emoji:"🆓",
+    headerBg:"linear-gradient(135deg,#4a5568,#2d3748)",
+    prices:{adult_monthly:0,adult_yearly:0,youth_monthly:0,youth_yearly:0},
+    ageGroups:["infant","youth","adult"],
+    benefits:["Club news & match updates","Fixtures & standings","Clips & highlights","Early store notifications"],
+    cta:"JOIN FREE",popular:false,adultsOnly:false,
   },
   {
-    id: "global_fan",
-    name: "GLOBAL FAN",
-    tagline: "For dedicated fans",
-    emoji: "🌍",
-    headerBg: `linear-gradient(135deg,#0D1B3E,#1a3060)`,
-    prices: { adult_monthly:20, adult_yearly:200, youth_monthly:15, youth_yearly:153 },
-    ageGroups: ["youth","adult"],
-    benefits: [
-      "Everything in Free",
-      "10% off match-day tickets",
-      "5% off official store",
-      "Early ticket access (48hr)",
-      "Exclusive member kit number",
-      "Priority squad updates",
-    ],
-    cta: "JOIN GLOBAL FAN",
-    popular: true,
-    adultsOnly: false,
+    id:"global_fan",name:"GLOBAL FAN",tagline:"For dedicated fans",emoji:"🌍",
+    headerBg:`linear-gradient(135deg,${NAVY},#1a3060)`,
+    prices:{adult_monthly:20,adult_yearly:200,youth_monthly:15,youth_yearly:153},
+    ageGroups:["youth","adult"],
+    benefits:["Everything in Free","10% off match-day tickets","5% off official store","Early ticket access (48hr)","Exclusive member kit number","Priority squad updates"],
+    cta:"JOIN GLOBAL FAN",popular:true,adultsOnly:false,
   },
   {
-    id: "honey_badger",
-    name: "HONEY BADGER",
-    tagline: "The ultimate membership",
-    emoji: "🦡",
-    headerBg: `linear-gradient(135deg,#D4A800,#F5C518)`,
-    prices: { adult_monthly:50, adult_yearly:500, youth_monthly:null, youth_yearly:null },
-    ageGroups: ["adult"],
-    benefits: [
-      "Everything in Global Fan",
-      "20% off match-day tickets",
-      "10% off official store",
-      "Free entry to home matches",
-      "Digital membership card",
-      "Vote in club decisions",
-      "Exclusive member events",
-      "VIP match-day experience",
-    ],
-    cta: "JOIN HONEY BADGER",
-    popular: false,
-    adultsOnly: true,
+    id:"honey_badger",name:"HONEY BADGER",tagline:"The ultimate membership",emoji:"🦡",
+    headerBg:`linear-gradient(135deg,#D4A800,#F5C518)`,
+    prices:{adult_monthly:50,adult_yearly:500,youth_monthly:null,youth_yearly:null},
+    ageGroups:["adult"],
+    benefits:["Everything in Global Fan","20% off match-day tickets","10% off official store","Free entry to home matches","Digital membership card","Vote in club decisions","Exclusive member events","VIP match-day experience"],
+    cta:"JOIN HONEY BADGER",popular:false,adultsOnly:true,
   },
 ]
 
 const ID_TYPES = [
-  { id:"omang",    label:"Omang (National ID)", sides:1, icon:"🪪" },
-  { id:"passport", label:"Passport",            sides:1, icon:"📗" },
-  { id:"license",  label:"Driver's License",   sides:2, icon:"🚗" },
+  {id:"omang",label:"Omang (National ID)",sides:1,icon:"🪪"},
+  {id:"passport",label:"Passport",sides:1,icon:"📗"},
+  {id:"license",label:"Driver's License",sides:2,icon:"🚗"},
 ]
 
 const MembershipPage = ({ session, onClose, onSuccess }) => {
-  const [step,     setStep]    = useState(1)
-  const [plan,     setPlan]    = useState(null)
-  const [billing,  setBilling] = useState("yearly")
-  const [dob,      setDob]     = useState("")
-  const [ageGroup, setAgeGroup]= useState(null)
-  const [fullName, setFullName]= useState(session?.user?.user_metadata?.full_name || "")
-  const [idType,   setIdType]  = useState(null)
-  const [idFront,  setIdFront] = useState(null)
-  const [idBack,   setIdBack]  = useState(null)
-  const [selfie,   setSelfie]  = useState(null)
-  const [loading,  setLoading] = useState(false)
-  const [error,    setError]   = useState("")
-  const [nameVal,  setNameVal] = useState(session?.user?.user_metadata?.full_name || "")
+  const [step,setStep]=useState(1)
+  const [plan,setPlan]=useState(null)
+  const [billing,setBilling]=useState("yearly")
+  const [dob,setDob]=useState("")
+  const [ageGroup,setAgeGroup]=useState(null)
+  const [nameVal,setNameVal]=useState(session?.user?.user_metadata?.full_name||"")
+  const [idType,setIdType]=useState(null)
+  const [idFront,setIdFront]=useState(null)
+  const [idBack,setIdBack]=useState(null)
+  const [selfie,setSelfie]=useState(null)
+  const [loading,setLoading]=useState(false)
+  const [error,setError]=useState("")
 
-  const selectedPlan   = PLANS.find(p => p.id === plan)
-  const needsVerify    = ageGroup === "adult"
-  const price          = getPrice(selectedPlan, ageGroup) || 0
-  const isPaid         = price > 0
-  const totalSteps     = needsVerify ? 5 : isPaid ? 4 : 3
+  const selectedPlan = PLANS.find(p=>p.id===plan)
+  const needsVerify  = ageGroup==="adult"
 
-  const getPrice = (p, ag) => {
-    if (!p || !ag) return null
-    const key = `${ag}_${billing}`
-    return p.prices[key]
+  const getPrice = (p,ag) => {
+    if(!p||!ag) return null
+    return p.prices[`${ag}_${billing}`]
   }
-
-  const getSaving = (p, ag) => {
-    if (!p || !ag) return 0
-    const m = p.prices[`${ag}_monthly`]
-    const y = p.prices[`${ag}_yearly`]
-    if (!m || !y) return 0
-    return (m * 12) - y
+  const getSaving = (p,ag) => {
+    if(!p||!ag) return 0
+    const m=p.prices[`${ag}_monthly`]; const y=p.prices[`${ag}_yearly`]
+    if(!m||!y) return 0
+    return (m*12)-y
   }
-
-  // Detect age from DOB
   const getAgeFromDob = (dobStr) => {
-    if (!dobStr) return null
-    const today = new Date()
-    const birth = new Date(dobStr)
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+    if(!dobStr) return null
+    const today=new Date(); const birth=new Date(dobStr)
+    let age=today.getFullYear()-birth.getFullYear()
+    const m=today.getMonth()-birth.getMonth()
+    if(m<0||(m===0&&today.getDate()<birth.getDate())) age--
     return age
   }
-
   const getAgeGroupFromAge = (age) => {
-    if (age === null) return null
-    if (age <= 5)  return "infant"
-    if (age <= 17) return "youth"
+    if(age===null) return null
+    if(age<=5) return "infant"
+    if(age<=17) return "youth"
     return "adult"
   }
 
-  // Camera helpers
   const capturePhoto = (setter) => {
-    const inp = document.createElement("input")
-    inp.type = "file"; inp.accept = "image/*"; inp.capture = "environment"
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return
-      const r = new FileReader()
-      r.onload = ev => setter(ev.target.result)
-      r.readAsDataURL(file)
-    }
+    const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*"; inp.capture="environment"
+    inp.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>setter(ev.target.result); r.readAsDataURL(file) }
+    inp.click()
+  }
+  const captureSelfie = (setter) => {
+    const inp=document.createElement("input"); inp.type="file"; inp.accept="image/*"; inp.capture="user"
+    inp.onchange=e=>{ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=ev=>setter(ev.target.result); r.readAsDataURL(file) }
     inp.click()
   }
 
-  const captureSelfie = (setter) => {
-    const inp = document.createElement("input")
-    inp.type = "file"; inp.accept = "image/*"; inp.capture = "user"
-    inp.onchange = e => {
-      const file = e.target.files[0]; if (!file) return
-      const r = new FileReader()
-      r.onload = ev => setter(ev.target.result)
-      r.readAsDataURL(file)
-    }
-    inp.click()
-  }
+  const isPaid = (getPrice(selectedPlan,ageGroup)||0) > 0
+  const totalSteps = needsVerify ? (isPaid?5:4) : (isPaid?4:3)
 
   const handleSubmit = async () => {
-    if (!session) { onClose(); return }
+    if(!session){ onClose(); return }
     setLoading(true); setError("")
     try {
       await supabase.from("membership_applications").insert({
-        user_id: session.user.id,
-        email: session.user.email,
-        full_name: nameVal,
-        plan_id: plan,
-        billing_cycle: billing,
-        age_group: ageGroup,
-        dob: dob || null,
-        id_type: idType,
-        id_front_url: idFront ? "uploaded" : null,
-        id_back_url: idBack ? "uploaded" : null,
-        selfie_url: selfie ? "uploaded" : null,
-        status: needsVerify ? "pending" : "active",
-        created_at: new Date().toISOString(),
+        user_id:session.user.id, email:session.user.email, full_name:nameVal,
+        plan_id:plan, billing_cycle:billing, age_group:ageGroup, dob:dob||null,
+        id_type:idType, id_front_url:idFront?"uploaded":null,
+        id_back_url:idBack?"uploaded":null, selfie_url:selfie?"uploaded":null,
+        status:needsVerify?"pending":"active", created_at:new Date().toISOString(),
       })
       await supabase.from("profiles").update({
-        is_member: plan !== "free",
-        billing_cycle: billing,
-        member_since: new Date().toISOString(),
-      }).eq("id", session.user.id)
-      setStep(totalSteps + 1)
-      if (onSuccess) onSuccess()
-    } catch(e) {
-      setError(e.message || "Something went wrong.")
-    }
+        is_member:plan!=="free", billing_cycle:billing, member_since:new Date().toISOString(),
+      }).eq("id",session.user.id)
+      setStep(totalSteps+1)
+      if(onSuccess) onSuccess()
+    } catch(e){ setError(e.message||"Something went wrong.") }
     setLoading(false)
   }
 
-  /* ── STEP BAR ── */
   const StepBar = () => {
     const steps = needsVerify
-      ? (isPaid ? ["Plan","Age","Details","Payment","Verify ID"] : ["Plan","Age","Details","Verify ID"])
-      : (isPaid ? ["Plan","Age","Details","Payment"] : ["Plan","Age","Details"])
+      ? (isPaid?["Plan","Age","Details","Payment","Verify ID"]:["Plan","Age","Details","Verify ID"])
+      : (isPaid?["Plan","Age","Details","Payment"]:["Plan","Age","Details"])
     return (
       <div style={{display:"flex",alignItems:"center",justifyContent:"center",
-        gap:0,padding:"10px 16px",background:"#f8f9fb",
-        borderBottom:`1px solid #eee`,flexShrink:0}}>
+        gap:0,padding:"10px 16px",background:"#f8f9fb",borderBottom:`1px solid #eee`,flexShrink:0}}>
         {steps.map((label,i)=>{
-          const s = i+1
-          const done = step > s
-          const active = step === s
+          const s=i+1; const done=step>s; const active=step===s
           return (
             <div key={s} style={{display:"flex",alignItems:"center"}}>
               <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
-                <div style={{
-                  width:26,height:26,borderRadius:"50%",
+                <div style={{width:26,height:26,borderRadius:"50%",
                   background:done?"#27AE60":active?NAVY:"#e5e7eb",
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                }}>
-                  <span style={{fontSize:11,fontWeight:900,
-                    color:done||active?WHITE:MGRAY,
-                    fontFamily:"'Barlow Condensed',sans-serif"}}>
-                    {done?"✓":s}
-                  </span>
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{fontSize:11,fontWeight:900,color:done||active?WHITE:MGRAY,
+                    fontFamily:"'Barlow Condensed',sans-serif"}}>{done?"✓":s}</span>
                 </div>
-                <span style={{fontSize:9,fontWeight:active?700:500,
-                  color:active?NAVY:MGRAY,
-                  fontFamily:"'Barlow Condensed',sans-serif",
-                  letterSpacing:"0.04em",whiteSpace:"nowrap"}}>{label}</span>
+                <span style={{fontSize:9,fontWeight:active?700:500,color:active?NAVY:MGRAY,
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.04em",whiteSpace:"nowrap"}}>{label}</span>
               </div>
-              {i < steps.length-1 && (
+              {i<steps.length-1&&(
                 <div style={{width:"clamp(16px,5vw,32px)",height:2,
                   background:done?"#27AE60":"#e5e7eb",margin:"0 2px 14px"}}/>
               )}
@@ -3204,124 +2960,72 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
     )
   }
 
-  /* ── STEP 1: PLANS ── */
   const Step1 = () => (
     <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-      {/* Header */}
-      <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
-        padding:"16px 16px 14px",textAlign:"center"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:24,color:WHITE,lineHeight:1}}>CHOOSE YOUR PLAN</div>
-        <div style={{fontSize:11,color:"#aab4cc",marginTop:4}}>
-          Villareal FC · Season 2026/27
-        </div>
-        {/* Billing toggle */}
-        <div style={{display:"inline-flex",background:"rgba(255,255,255,0.1)",
-          borderRadius:8,padding:3,marginTop:12,gap:2}}>
+      <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,padding:"16px 16px 14px",textAlign:"center"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:24,color:WHITE,lineHeight:1}}>CHOOSE YOUR PLAN</div>
+        <div style={{fontSize:11,color:"#aab4cc",marginTop:4}}>Villareal FC · Season 2026/27</div>
+        <div style={{display:"inline-flex",background:"rgba(255,255,255,0.1)",borderRadius:8,padding:3,marginTop:12,gap:2}}>
           {["monthly","yearly"].map(b=>(
             <button key={b} onClick={()=>setBilling(b)} style={{
-              padding:"7px 16px",minHeight:34,
-              background:billing===b?WHITE:"none",
+              padding:"7px 16px",minHeight:34,background:billing===b?WHITE:"none",
               border:"none",borderRadius:6,cursor:"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:12,color:billing===b?NAVY:"rgba(255,255,255,0.7)",
-              WebkitTapHighlightColor:"transparent",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
+              color:billing===b?NAVY:"rgba(255,255,255,0.7)",WebkitTapHighlightColor:"transparent",
               display:"flex",alignItems:"center",gap:5}}>
               {b==="monthly"?"MONTHLY":"YEARLY"}
-              {b==="yearly"&&<span style={{background:GREEN,color:WHITE,
-                fontSize:8,fontWeight:900,padding:"1px 4px",borderRadius:3}}>
-                SAVE 17%</span>}
+              {b==="yearly"&&<span style={{background:GREEN,color:WHITE,fontSize:8,fontWeight:900,padding:"1px 4px",borderRadius:3}}>SAVE 17%</span>}
             </button>
           ))}
         </div>
       </div>
-
       <div style={{padding:"12px 12px 20px",display:"flex",flexDirection:"column",gap:10}}>
-        {PLANS.map(p => {
-          const adultPrice = getPrice(p, "adult")
-          const youthPrice = getPrice(p, "youth")
-          const isSelected = plan === p.id
+        {PLANS.map(p=>{
+          const adultPrice=getPrice(p,"adult"); const isSelected=plan===p.id
           return (
             <div key={p.id} onClick={()=>setPlan(p.id)} style={{
               borderRadius:14,overflow:"hidden",cursor:"pointer",
               border:`2.5px solid ${isSelected?(p.adultsOnly?GOLD:NAVY):"#e5e7eb"}`,
               boxShadow:isSelected?"0 4px 20px rgba(0,0,0,0.15)":"0 1px 4px rgba(0,0,0,0.06)",
-              WebkitTapHighlightColor:"transparent",
-              transition:"border-color 0.15s,box-shadow 0.15s",
-              background:WHITE,position:"relative",
-            }}>
+              WebkitTapHighlightColor:"transparent",background:WHITE,position:"relative"}}>
               {p.popular&&(
-                <div style={{position:"absolute",top:0,right:0,
-                  background:GOLD,color:NAVY,fontSize:9,fontWeight:900,
-                  padding:"3px 10px",borderRadius:"0 11px 0 8px",
+                <div style={{position:"absolute",top:0,right:0,background:GOLD,color:NAVY,
+                  fontSize:9,fontWeight:900,padding:"3px 10px",borderRadius:"0 11px 0 8px",
                   fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em",zIndex:1}}>
                   MOST POPULAR
                 </div>
               )}
-              {/* Coloured header */}
-              <div style={{background:p.headerBg,padding:"14px 16px 12px",
-                display:"flex",alignItems:"center",gap:10}}>
+              <div style={{background:p.headerBg,padding:"14px 16px 12px",display:"flex",alignItems:"center",gap:10}}>
                 <span style={{fontSize:28}}>{p.emoji}</span>
                 <div style={{flex:1}}>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                    fontSize:18,color:p.adultsOnly?NAVY:WHITE,lineHeight:1}}>{p.name}</div>
-                  <div style={{fontSize:11,color:p.adultsOnly?"rgba(0,0,0,0.6)":"rgba(255,255,255,0.75)",
-                    marginTop:2}}>{p.tagline}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:18,color:p.adultsOnly?NAVY:WHITE,lineHeight:1}}>{p.name}</div>
+                  <div style={{fontSize:11,color:p.adultsOnly?"rgba(0,0,0,0.6)":"rgba(255,255,255,0.75)",marginTop:2}}>{p.tagline}</div>
                 </div>
                 {isSelected&&(
-                  <div style={{width:24,height:24,borderRadius:"50%",
-                    background:"rgba(255,255,255,0.9)",flexShrink:0,
-                    display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{width:24,height:24,borderRadius:"50%",background:"rgba(255,255,255,0.9)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
                     <span style={{color:p.adultsOnly?GOLD:NAVY,fontSize:14,fontWeight:900}}>✓</span>
                   </div>
                 )}
               </div>
-
-              {/* Price row */}
-              <div style={{padding:"10px 16px",borderBottom:`1px solid #f0f0f0`,
-                display:"flex",alignItems:"center",flexWrap:"wrap",gap:8}}>
-                <div style={{display:"flex",alignItems:"baseline",gap:3}}>
-                  {adultPrice === 0 ? (
-                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",
-                      fontWeight:900,fontSize:26,color:GREEN}}>FREE</span>
-                  ) : (
-                    <>
-                      <span style={{fontFamily:"'Barlow Condensed',sans-serif",
-                        fontWeight:900,fontSize:26,color:NAVY}}>
-                        P{adultPrice}
-                      </span>
-                      <span style={{fontSize:12,color:MGRAY}}>
-                        /{billing==="monthly"?"mo":"yr"}
-                      </span>
-                    </>
-                  )}
-                </div>
-                {billing==="yearly"&&getSaving(p,"adult")>0&&(
-                  <span style={{background:"#dcfce7",color:GREEN,fontSize:10,
-                    fontWeight:700,padding:"2px 7px",borderRadius:4}}>
-                    Save P{getSaving(p,"adult")}
-                  </span>
+              <div style={{padding:"10px 16px",borderBottom:`1px solid #f0f0f0`,display:"flex",alignItems:"center",flexWrap:"wrap",gap:8}}>
+                {adultPrice===0?(
+                  <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:26,color:GREEN}}>FREE</span>
+                ):(
+                  <>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:26,color:NAVY}}>P{adultPrice}</span>
+                    <span style={{fontSize:12,color:MGRAY}}>/{billing==="monthly"?"mo":"yr"}</span>
+                  </>
                 )}
-                {p.adultsOnly ? (
-                  <span style={{background:"#fef2f2",color:RED,fontSize:10,
-                    fontWeight:700,padding:"2px 7px",borderRadius:4,
-                    marginLeft:"auto"}}>
-                    18+ ONLY
-                  </span>
-                ) : youthPrice !== null && youthPrice !== undefined ? (
-                  <span style={{fontSize:11,color:MGRAY,marginLeft:"auto"}}>
-                    Youth: P{youthPrice}/{billing==="monthly"?"mo":"yr"}
-                  </span>
-                ) : null}
+                {billing==="yearly"&&getSaving(p,"adult")>0&&(
+                  <span style={{background:"#dcfce7",color:GREEN,fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4}}>Save P{getSaving(p,"adult")}</span>
+                )}
+                {p.adultsOnly&&<span style={{background:"#fef2f2",color:RED,fontSize:10,fontWeight:700,padding:"2px 7px",borderRadius:4,marginLeft:"auto"}}>18+ ONLY</span>}
               </div>
-
-              {/* Benefits */}
               <div style={{padding:"10px 16px 12px"}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"4px 8px"}}>
                   {p.benefits.map((b,i)=>(
                     <div key={i} style={{display:"flex",alignItems:"flex-start",gap:5}}>
-                      <span style={{color:p.adultsOnly?GOLD2:NAVY,fontSize:11,
-                        flexShrink:0,marginTop:1}}>✔</span>
+                      <span style={{color:p.adultsOnly?GOLD2:NAVY,fontSize:11,flexShrink:0,marginTop:1}}>✔</span>
                       <span style={{fontSize:11,color:"#444",lineHeight:1.3}}>{b}</span>
                     </div>
                   ))}
@@ -3331,828 +3035,286 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
           )
         })}
       </div>
-
       <div style={{padding:"0 12px 20px"}}>
-        <button onClick={()=>{ if(plan) setStep(2) }}
-          disabled={!plan}
-          style={{
-            width:"100%",padding:"15px",
-            background:plan?NAVY:"#e5e7eb",
+        <button onClick={()=>{if(plan) setStep(2)}} disabled={!plan}
+          style={{width:"100%",padding:"15px",background:plan?NAVY:"#e5e7eb",
             border:"none",borderRadius:12,cursor:plan?"pointer":"not-allowed",
             fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,
-            color:plan?WHITE:"#aaa",WebkitTapHighlightColor:"transparent",minHeight:50,
-          }}>
+            color:plan?WHITE:"#aaa",WebkitTapHighlightColor:"transparent",minHeight:50}}>
           CONTINUE →
         </button>
       </div>
     </div>
   )
 
-  /* ── STEP 2: AGE & DOB ── */
-  const Step2 = () => {
-    const age = getAgeFromDob(dob)
-    const detectedGroup = getAgeGroupFromAge(age)
-
-    // Honey Badger must be adult — reject under 18
-    const isDobValid = dob && age !== null
-    const isBlocked = selectedPlan?.adultsOnly && isDobValid && age < 18
-    const isFraud = isDobValid && age <= 5 && plan !== "free"
-
-    const handleDobChange = (val) => {
-      setDob(val)
-      const a = getAgeFromDob(val)
-      const grp = getAgeGroupFromAge(a)
-      if (grp) setAgeGroup(grp)
-    }
-
-    return (
-      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 14px"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:22,color:NAVY,marginBottom:4}}>DATE OF BIRTH</div>
-        <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>
-          Your age determines your pricing tier and verification requirements.
-          Enter your real date of birth — we verify identity for paid plans.
-        </div>
-
-        {/* DOB input */}
-        <div style={{marginBottom:16}}>
-          <label style={{fontSize:11,fontWeight:700,color:MGRAY,
-            fontFamily:"'Barlow Condensed',sans-serif",display:"block",
-            marginBottom:6,letterSpacing:"0.06em"}}>DATE OF BIRTH</label>
-          <input type="date" value={dob}
-            onChange={e=>handleDobChange(e.target.value)}
-            max={new Date().toISOString().split("T")[0]}
-            style={{width:"100%",padding:"13px 14px",borderRadius:10,
-              border:`2px solid ${isDobValid&&!isBlocked&&!isFraud?GREEN:isBlocked||isFraud?RED:"#e5e7eb"}`,
-              fontSize:16,outline:"none",boxSizing:"border-box",
-              fontFamily:"inherit",WebkitAppearance:"none",minHeight:50,
-              background:WHITE}}/>
-        </div>
-
-        {/* Age detection result */}
-        {isDobValid && (
-          <div style={{
-            borderRadius:10,padding:"12px 14px",marginBottom:14,
-            background:isBlocked||isFraud?"#fef2f2":detectedGroup==="adult"?"#eef1f8":"#f0fdf4",
-            border:`1px solid ${isBlocked||isFraud?"#fecaca":detectedGroup==="adult"?"#c7d2fe":"#bbf7d0"}`,
-          }}>
-            {isFraud ? (
-              <>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:13,color:RED,marginBottom:4}}>⚠ INVALID AGE FOR THIS PLAN</div>
-                <div style={{fontSize:12,color:"#7f1d1d",lineHeight:1.5}}>
-                  Paid plans require members aged 6 and above. Infants (0–5) are only eligible for the free plan.
-                  Please select Premium Free or enter a valid date of birth.
-                </div>
-              </>
-            ) : isBlocked ? (
-              <>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:13,color:RED,marginBottom:4}}>⚠ AGE RESTRICTION</div>
-                <div style={{fontSize:12,color:"#7f1d1d",lineHeight:1.5}}>
-                  🦡 Honey Badger membership is for adults aged 18+ only.
-                  You are {age} years old. Please select Global Fan or Premium Free instead.
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:13,color:detectedGroup==="adult"?NAVY:GREEN,marginBottom:4}}>
-                  ✓ Age detected: {age} years old
-                </div>
-                <div style={{fontSize:12,color:MGRAY,lineHeight:1.5}}>
-                  {detectedGroup==="infant"&&"Infant (0–5) · Free on all plans"}
-                  {detectedGroup==="youth"&&`Youth (6–17) · P${getPrice(selectedPlan,"youth")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name}`}
-                  {detectedGroup==="adult"&&`Adult (18+) · P${getPrice(selectedPlan,"adult")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name} · ID verification required`}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Anti-fraud notice */}
-        <div style={{background:"#fffbea",border:`1px solid #fde68a`,borderRadius:10,
-          padding:"10px 14px",marginBottom:20}}>
-          <div style={{fontSize:11,color:"#78350f",lineHeight:1.6}}>
-            🔒 <strong>Fraud prevention:</strong> Entering a false date of birth to avoid payment
-            is a violation of our Terms. Identity documents are verified against your DOB for all paid plans.
-            Fraudulent accounts will be permanently banned.
-          </div>
-        </div>
-
-        {/* Price summary */}
-        {isDobValid&&!isBlocked&&!isFraud&&ageGroup&&(
-          <div style={{background:"#f8f9fb",borderRadius:12,padding:"12px 14px",
-            marginBottom:18,border:`1px solid #e5e7eb`}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:6}}>
-              YOUR PRICE
-            </div>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:14,color:NAVY,fontWeight:600}}>
-                {selectedPlan?.name} · {age} yrs
-              </span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:22,color:getPrice(selectedPlan,ageGroup)===0?GREEN:NAVY}}>
-                {getPrice(selectedPlan,ageGroup)===0
-                  ? "FREE"
-                  : `P${getPrice(selectedPlan,ageGroup)}/${billing==="monthly"?"mo":"yr"}`}
-              </span>
-            </div>
-            {billing==="yearly"&&getSaving(selectedPlan,ageGroup)>0&&(
-              <div style={{fontSize:12,color:GREEN,marginTop:3,fontWeight:600}}>
-                Saves P{getSaving(selectedPlan,ageGroup)} vs monthly billing
-              </div>
-            )}
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>setStep(1)}
-            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
-              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            ← BACK
-          </button>
-          <button
-            onClick={()=>{
-              if(!dob) { setError("Please enter your date of birth."); return }
-              if(isBlocked||isFraud) { setError("Please go back and choose a suitable plan for your age."); return }
-              setError("")
-              setStep(3)
-            }}
-            disabled={!dob||isBlocked||isFraud}
-            style={{flex:2,padding:"14px",
-              background:!dob||isBlocked||isFraud?"#e5e7eb":NAVY,
-              border:"none",borderRadius:12,
-              cursor:!dob||isBlocked||isFraud?"not-allowed":"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:15,
-              color:!dob||isBlocked||isFraud?"#aaa":WHITE,
-              minHeight:50,WebkitTapHighlightColor:"transparent"}}>
-            CONTINUE →
-          </button>
-        </div>
-        {error&&<div style={{color:RED,fontSize:13,marginTop:10,fontWeight:600,textAlign:"center"}}>{error}</div>}
-      </div>
-    )
-  }
-
-  /* ── STEP 3: PERSONAL DETAILS ── */
-  const Step3 = () => {
-    const [localName, setLocalName] = useState(nameVal)
-    const [localIdType, setLocalIdType] = useState(idType)
-
-    const handleNext = () => {
-      if (!localName.trim()) { setError("Please enter your full name."); return }
-      if (needsVerify && !localIdType) { setError("Please select an ID type."); return }
-      setNameVal(localName)
-      setIdType(localIdType)
-      setError("")
-      if (needsVerify)     { setStep(4) }
-      else if (isPaid)     { setStep(3.5) }
-      else                 { handleSubmit() }
-    }
-
-    return (
-      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 14px"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:22,color:NAVY,marginBottom:4}}>YOUR DETAILS</div>
-        <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>
-          {needsVerify
-            ? "Adults must verify their identity. Your name must match your ID document exactly."
-            : "Almost done — confirm your details to complete registration."}
-        </div>
-
-        <div style={{marginBottom:14}}>
-          <label style={{fontSize:11,fontWeight:700,color:MGRAY,
-            fontFamily:"'Barlow Condensed',sans-serif",display:"block",
-            marginBottom:6,letterSpacing:"0.06em"}}>FULL NAME</label>
-          <input
-            type="text"
-            placeholder="As it appears on your ID"
-            defaultValue={localName}
-            onBlur={e => setLocalName(e.target.value)}
-            style={{width:"100%",padding:"13px 14px",borderRadius:10,
-              border:"2px solid #e5e7eb",fontSize:16,outline:"none",
-              boxSizing:"border-box",fontFamily:"inherit",
-              WebkitAppearance:"none",minHeight:50}}
-            onFocus={e=>e.target.style.borderColor=GOLD}
-          />
-        </div>
-
-        <div style={{marginBottom:18}}>
-          <label style={{fontSize:11,fontWeight:700,color:MGRAY,
-            fontFamily:"'Barlow Condensed',sans-serif",display:"block",
-            marginBottom:6,letterSpacing:"0.06em"}}>EMAIL</label>
-          <input type="email" value={session?.user?.email||""} disabled
-            style={{width:"100%",padding:"13px 14px",borderRadius:10,
-              border:"2px solid #f0f0f0",fontSize:16,outline:"none",
-              boxSizing:"border-box",fontFamily:"inherit",
-              background:"#f8f9fb",color:MGRAY,minHeight:50}}/>
-        </div>
-
-        {needsVerify&&(
-          <>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-              ID DOCUMENT TYPE
-            </div>
-            <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-              {ID_TYPES.map(t=>(
-                <div key={t.id} onClick={()=>setLocalIdType(t.id)} style={{
-                  padding:"13px 14px",borderRadius:12,cursor:"pointer",
-                  border:`2px solid ${localIdType===t.id?NAVY:"#e5e7eb"}`,
-                  background:localIdType===t.id?"#eef1f8":WHITE,
-                  display:"flex",alignItems:"center",gap:12,
-                  WebkitTapHighlightColor:"transparent",minHeight:50,
-                }}>
-                  <span style={{fontSize:22}}>{t.icon}</span>
-                  <div style={{flex:1}}>
-                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                      fontSize:15,color:NAVY}}>{t.label}</div>
-                    <div style={{fontSize:11,color:MGRAY,marginTop:1}}>
-                      {t.sides===2?"Front & back photos required":"Front photo only"}
-                    </div>
-                  </div>
-                  <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
-                    border:`2px solid ${localIdType===t.id?NAVY:"#ddd"}`,
-                    background:localIdType===t.id?NAVY:"none",
-                    display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {localIdType===t.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-
-        {error&&(
-          <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
-            padding:"10px 14px",color:RED,fontSize:13,marginBottom:14,fontWeight:600}}>
-            {error}
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>setStep(2)}
-            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
-              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            ← BACK
-          </button>
-          <button onClick={handleNext} disabled={loading}
-            style={{flex:2,padding:"14px",background:loading?"#ccc":NAVY,
-              border:"none",borderRadius:12,cursor:loading?"not-allowed":"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
-              color:loading?"#888":WHITE,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            {loading?"PLEASE WAIT...":needsVerify?"NEXT: VERIFY ID →":"COMPLETE ✓"}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── STEP 4: ID VERIFICATION ── */
-  const Step4 = () => {
-    const selId = ID_TYPES.find(t=>t.id===idType)
-    const done = idFront && selfie && (selId?.sides===1 || idBack)
-
-    return (
-      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"20px 14px"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:22,color:NAVY,marginBottom:4}}>VERIFY YOUR IDENTITY</div>
-        <div style={{fontSize:13,color:MGRAY,marginBottom:14,lineHeight:1.6}}>
-          Documents are encrypted and used only for verification. Admin reviews within 24–48hrs.
-        </div>
-
-        <div style={{background:"#eef1f8",borderRadius:10,padding:"10px 14px",
-          marginBottom:16,display:"flex",gap:10,border:`1px solid #c7d2fe`}}>
-          <span style={{fontSize:18,flexShrink:0}}>🔒</span>
-          <div style={{fontSize:12,color:NAVY,lineHeight:1.5}}>
-            <strong>Secure & Private</strong> — Reviewed by Villareal FC admin only. Never shared with third parties.
-          </div>
-        </div>
-
-        {/* ID Front */}
-        <div style={{marginBottom:12}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-            {selId?.emoji} {selId?.label?.toUpperCase()} — FRONT
-          </div>
-          {idFront ? (
-            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
-              border:`2px solid ${GREEN}`}}>
-              <img src={idFront} alt="ID Front"
-                style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
-              <div style={{position:"absolute",top:6,right:6,background:GREEN,
-                borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
-                ✓ Captured</div>
-              <button onClick={()=>setIdFront(null)}
-                style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
-                  border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
-                  color:WHITE,cursor:"pointer"}}>Retake</button>
-            </div>
-          ) : (
-            <button onClick={()=>capturePhoto(setIdFront)} style={{
-              width:"100%",height:110,borderRadius:12,
-              border:`2px dashed ${NAVY}`,background:"#f8f9fb",
-              display:"flex",flexDirection:"column",alignItems:"center",
-              justifyContent:"center",gap:6,cursor:"pointer",
-              WebkitTapHighlightColor:"transparent"}}>
-              <span style={{fontSize:28}}>📷</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                fontSize:13,color:NAVY}}>TAP TO CAPTURE FRONT</span>
-              <span style={{fontSize:11,color:MGRAY}}>All text must be clearly visible</span>
-            </button>
-          )}
-        </div>
-
-        {/* ID Back (license only) */}
-        {selId?.sides===2&&(
-          <div style={{marginBottom:12}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-              {selId?.emoji} {selId?.label?.toUpperCase()} — BACK
-            </div>
-            {idBack ? (
-              <div style={{position:"relative",borderRadius:12,overflow:"hidden",
-                border:`2px solid ${GREEN}`}}>
-                <img src={idBack} alt="ID Back"
-                  style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
-                <div style={{position:"absolute",top:6,right:6,background:GREEN,
-                  borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
-                  ✓ Captured</div>
-                <button onClick={()=>setIdBack(null)}
-                  style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
-                    border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
-                    color:WHITE,cursor:"pointer"}}>Retake</button>
-              </div>
-            ) : (
-              <button onClick={()=>capturePhoto(setIdBack)} style={{
-                width:"100%",height:110,borderRadius:12,
-                border:`2px dashed ${NAVY}`,background:"#f8f9fb",
-                display:"flex",flexDirection:"column",alignItems:"center",
-                justifyContent:"center",gap:6,cursor:"pointer",
-                WebkitTapHighlightColor:"transparent"}}>
-                <span style={{fontSize:28}}>📷</span>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                  fontSize:13,color:NAVY}}>TAP TO CAPTURE BACK</span>
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Selfie */}
-        <div style={{marginBottom:16}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-            🤳 SELFIE — FACE VERIFICATION
-          </div>
-          <div style={{background:"#fffbea",borderRadius:8,padding:"8px 12px",
-            marginBottom:8,border:`1px solid #fde68a`,fontSize:11,color:"#92400e"}}>
-            📌 Face camera directly · Remove glasses · Good lighting · No hats
-          </div>
-          {selfie ? (
-            <div style={{position:"relative",borderRadius:12,overflow:"hidden",
-              border:`2px solid ${GREEN}`}}>
-              <img src={selfie} alt="Selfie"
-                style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
-              <div style={{position:"absolute",top:6,right:6,background:GREEN,
-                borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,fontWeight:700}}>
-                ✓ Captured</div>
-              <button onClick={()=>setSelfie(null)}
-                style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",
-                  border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,
-                  color:WHITE,cursor:"pointer"}}>Retake</button>
-            </div>
-          ) : (
-            <button onClick={()=>captureSelfie(setSelfie)} style={{
-              width:"100%",height:130,borderRadius:12,
-              border:`2px dashed ${GOLD2}`,background:"#fffbea",
-              display:"flex",flexDirection:"column",alignItems:"center",
-              justifyContent:"center",gap:6,cursor:"pointer",
-              WebkitTapHighlightColor:"transparent"}}>
-              <span style={{fontSize:32}}>🤳</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                fontSize:13,color:NAVY}}>TAP TO TAKE SELFIE</span>
-              <span style={{fontSize:11,color:MGRAY}}>Use your front camera</span>
-            </button>
-          )}
-        </div>
-
-        {error&&(
-          <div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,
-            padding:"10px 14px",color:RED,fontSize:13,marginBottom:12,fontWeight:600}}>
-            {error}
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>setStep(3)}
-            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
-              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            ← BACK
-          </button>
-          <button
-            onClick={()=>{
-              if(!idFront) { setError("Please capture your ID front."); return }
-              if(selId?.sides===2&&!idBack) { setError("Please capture your ID back."); return }
-              if(!selfie) { setError("Please take a selfie."); return }
-              setError(""); handleSubmit()
-            }}
-            disabled={loading||!done}
-            style={{flex:2,padding:"14px",
-              background:loading||!done?"#e5e7eb":NAVY,
-              border:"none",borderRadius:12,
-              cursor:loading||!done?"not-allowed":"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
-              color:loading||!done?"#aaa":WHITE,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            {loading?"SUBMITTING...":"SUBMIT FOR REVIEW →"}
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── STEP PAYMENT ── */
-  const StepPayment = () => {
-    const [method, setMethod] = useState("")
-    const [ref,    setRef]    = useState("")
-    const [done,   setDone]   = useState(false)
-    const price = getPrice(selectedPlan, ageGroup)
-    const METHODS = [
-      { id:"orange",  label:"Orange Money",  icon:"🟠", num:"*145#" },
-      { id:"myzaka",  label:"MyZaka",        icon:"🔵", num:"*167#" },
-      { id:"eft",     label:"Bank Transfer", icon:"🏦", num:"FNB / BancABC" },
-    ]
-
-    if(done) return (
-      <div style={{flex:1,overflowY:"auto",padding:"24px 16px"}}>
-        <div style={{background:"#f0fdf4",border:`1px solid #bbf7d0`,borderRadius:14,
-          padding:"20px",textAlign:"center",marginBottom:16}}>
-          <div style={{fontSize:40,marginBottom:8}}>✅</div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:20,color:GREEN,marginBottom:6}}>PAYMENT SUBMITTED</div>
-          <div style={{fontSize:13,color:"#166534",lineHeight:1.6}}>
-            Your payment reference <strong>{ref}</strong> has been recorded.
-            Our team will verify your payment within 24 hours.
-          </div>
-        </div>
-        <button onClick={()=>needsVerify?setStep(4):handleSubmit()}
-          style={{width:"100%",padding:"14px",background:NAVY,border:"none",
-            borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-            fontWeight:900,fontSize:15,color:WHITE,minHeight:50}}>
-          {needsVerify?"NEXT: VERIFY ID →":"COMPLETE REGISTRATION →"}
-        </button>
-      </div>
-    )
-
-    return (
-      <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:22,color:NAVY,marginBottom:4}}>PAYMENT</div>
-        <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>
-          Complete your payment to activate your membership.
-        </div>
-
-        {/* Amount box */}
-        <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-          borderRadius:14,padding:"18px 20px",marginBottom:18,textAlign:"center"}}>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",marginBottom:4,
-            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.08em"}}>
-            {selectedPlan?.name} · {billing==="monthly"?"MONTHLY":"YEARLY"}
-          </div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:42,color:GOLD,lineHeight:1}}>
-            P{price}
-          </div>
-          <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4}}>
-            /{billing==="monthly"?"month":"year"}
-          </div>
-        </div>
-
-        {/* Payment methods */}
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-          fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:10}}>
-          SELECT PAYMENT METHOD
-        </div>
-        <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-          {METHODS.map(m=>(
-            <div key={m.id} onClick={()=>setMethod(m.id)} style={{
-              padding:"13px 14px",borderRadius:12,cursor:"pointer",
-              border:`2px solid ${method===m.id?NAVY:"#e5e7eb"}`,
-              background:method===m.id?"#eef1f8":WHITE,
-              display:"flex",alignItems:"center",gap:12,
-              WebkitTapHighlightColor:"transparent",minHeight:54,
-            }}>
-              <span style={{fontSize:24}}>{m.icon}</span>
-              <div style={{flex:1}}>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",
-                  fontWeight:800,fontSize:15,color:NAVY}}>{m.label}</div>
-                <div style={{fontSize:11,color:MGRAY,marginTop:1}}>{m.num}</div>
-              </div>
-              <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,
-                border:`2px solid ${method===m.id?NAVY:"#ddd"}`,
-                background:method===m.id?NAVY:"none",
-                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                {method===m.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Instructions */}
-        {method&&(
-          <div style={{background:"#fffbea",border:`1px solid #fde68a`,
-            borderRadius:10,padding:"12px 14px",marginBottom:14}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:"#92400e",marginBottom:6,letterSpacing:"0.06em"}}>
-              HOW TO PAY
-            </div>
-            {method==="orange"&&(
-              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
-                1. Dial <strong>*145#</strong> on your phone<br/>
-                2. Select <strong>Send Money</strong><br/>
-                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
-                4. Enter your reference code below
-              </div>
-            )}
-            {method==="myzaka"&&(
-              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
-                1. Open MyZaka app or dial <strong>*167#</strong><br/>
-                2. Select <strong>Send Money</strong><br/>
-                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
-                4. Enter your reference code below
-              </div>
-            )}
-            {method==="eft"&&(
-              <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
-                Bank: <strong>FNB Botswana</strong><br/>
-                Account: <strong>62012345678</strong><br/>
-                Branch: <strong>282672</strong><br/>
-                Reference: <strong>Your email address</strong><br/>
-                Amount: <strong>P{price}</strong>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Reference input */}
-        {method&&(
-          <div style={{marginBottom:16}}>
-            <label style={{fontSize:11,fontWeight:700,color:MGRAY,display:"block",
-              marginBottom:6,letterSpacing:"0.06em",
-              fontFamily:"'Barlow Condensed',sans-serif"}}>
-              PAYMENT REFERENCE / CONFIRMATION NUMBER
-            </label>
-            <input placeholder="e.g. TXN123456789" value={ref}
-              onChange={e=>setRef(e.target.value)}
-              style={{width:"100%",padding:"13px 14px",borderRadius:10,
-                border:`2px solid ${ref?GOLD:"#e5e7eb"}`,fontSize:15,outline:"none",
-                boxSizing:"border-box",fontFamily:"inherit",minHeight:50}}/>
-            <div style={{fontSize:11,color:MGRAY,marginTop:4}}>
-              Enter the transaction reference from your payment confirmation
-            </div>
-          </div>
-        )}
-
-        <div style={{display:"flex",gap:10}}>
-          <button onClick={()=>setStep(3)}
-            style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",
-              borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:15,color:NAVY,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            ← BACK
-          </button>
-          <button
-            onClick={()=>{
-              if(!method){setError("Please select a payment method.");return}
-              if(!ref.trim()){setError("Please enter your payment reference.");return}
-              setError("")
-              setDone(true)
-            }}
-            disabled={!method||!ref.trim()}
-            style={{flex:2,padding:"14px",
-              background:!method||!ref.trim()?"#e5e7eb":GREEN,
-              border:"none",borderRadius:12,
-              cursor:!method||!ref.trim()?"not-allowed":"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
-              color:!method||!ref.trim()?"#aaa":WHITE,minHeight:50,
-              WebkitTapHighlightColor:"transparent"}}>
-            CONFIRM PAYMENT →
-          </button>
-        </div>
-        {error&&<div style={{color:RED,fontSize:13,marginTop:10,
-          fontWeight:600,textAlign:"center"}}>{error}</div>}
-      </div>
-    )
-  }
-
-  /* ── SUCCESS ── */
-  const StepDone = () => (
-    <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
-      justifyContent:"center",padding:"32px 24px",textAlign:"center"}}>
-      <div style={{width:76,height:76,borderRadius:"50%",
-        background:needsVerify?"#fffbea":"#dcfce7",
-        display:"flex",alignItems:"center",justifyContent:"center",
-        marginBottom:14,fontSize:38}}>
-        {needsVerify?"⏳":"🎉"}
-      </div>
-      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-        fontSize:24,color:NAVY,marginBottom:8}}>
-        {needsVerify?"APPLICATION SUBMITTED!":"WELCOME TO THE FAMILY!"}
-      </div>
-      <div style={{fontSize:14,color:MGRAY,lineHeight:1.7,marginBottom:24,maxWidth:300}}>
-        {needsVerify
-          ? "Your identity is under review. You'll receive an email within 24–48 hours once approved."
-          : `You're now a ${selectedPlan?.name} member! Welcome to Villareal FC 🦡⚽`}
-      </div>
-      {needsVerify&&(
-        <div style={{background:"#fffbea",border:`1px solid #fde68a`,borderRadius:12,
-          padding:"14px 16px",marginBottom:20,textAlign:"left",width:"100%",maxWidth:320}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:"#92400e",marginBottom:8,letterSpacing:"0.06em"}}>
-            WHAT HAPPENS NEXT
-          </div>
-          {["Admin reviews your documents (24–48hrs)",
-            "You receive an approval email",
-            "Full membership benefits unlock",
-            "Digital membership card issued"].map((s,i)=>(
-            <div key={i} style={{display:"flex",gap:8,marginBottom:5}}>
-              <span style={{color:GOLD2,fontWeight:800,flexShrink:0}}>{i+1}.</span>
-              <span style={{fontSize:12,color:"#78350f"}}>{s}</span>
-            </div>
-          ))}
-        </div>
-      )}
-      <button onClick={onClose}
-        style={{width:"100%",maxWidth:320,padding:"15px",background:NAVY,
-          border:"none",borderRadius:12,cursor:"pointer",
-          fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,
-          color:WHITE,WebkitTapHighlightColor:"transparent",minHeight:50}}>
-        {needsVerify?"GO TO MY PROFILE →":"START EXPLORING 🟡"}
-      </button>
-    </div>
-  )
-
   const isDone = step > totalSteps
 
   return (
-    <div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",
-      height:"100%",width:"100%"}}>
-      <div style={{
-        background:WHITE,width:"100%",
-        height:"92%",
-        borderRadius:"22px 22px 0 0",
-        display:"flex",flexDirection:"column",
-        overflow:"hidden",
-        boxShadow:"0 -8px 32px rgba(0,0,0,0.3)",
-      }}>
-        {/* Modal header */}
+    <div style={{display:"flex",alignItems:"flex-end",justifyContent:"center",height:"100%",width:"100%"}}>
+      <div style={{background:WHITE,width:"100%",height:"92%",borderRadius:"22px 22px 0 0",
+        display:"flex",flexDirection:"column",overflow:"hidden",
+        boxShadow:"0 -8px 32px rgba(0,0,0,0.3)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
           padding:"14px 16px 12px",borderBottom:`1px solid #eee`,flexShrink:0}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <Logo size={26}/>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:15,color:NAVY,letterSpacing:"0.04em"}}>MEMBERSHIP</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY,letterSpacing:"0.04em"}}>MEMBERSHIP</div>
           </div>
-          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",
-            width:30,height:30,borderRadius:"50%",cursor:"pointer",
-            display:"flex",alignItems:"center",justifyContent:"center",
+          <button onClick={onClose} style={{background:"#f0f0f0",border:"none",width:30,height:30,
+            borderRadius:"50%",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",
             fontSize:14,color:MGRAY,WebkitTapHighlightColor:"transparent"}}>✕</button>
         </div>
 
         {!isDone && <StepBar/>}
 
-        <div style={{flex:1,display:"flex",flexDirection:"column",
-          overflow:"hidden",minHeight:0}}>
-          {step===1   && <Step1/>}
-          {step===2   && <Step2/>}
-          {step===3   && <Step3/>}
-          {step===3.5 && <StepPayment/>}
-          {step===4   && <Step4/>}
-          {isDone     && <StepDone/>}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
+          {step===1 && <Step1/>}
+          {step===2 && (
+            <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:22,color:NAVY,marginBottom:4}}>DATE OF BIRTH</div>
+              <div style={{fontSize:13,color:MGRAY,marginBottom:18,lineHeight:1.6}}>Your age determines pricing and verification requirements.</div>
+              <div style={{marginBottom:16}}>
+                <label style={{fontSize:11,fontWeight:700,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",display:"block",marginBottom:6,letterSpacing:"0.06em"}}>DATE OF BIRTH</label>
+                <input type="date" value={dob}
+                  onChange={e=>{
+                    setDob(e.target.value)
+                    const a=getAgeFromDob(e.target.value)
+                    const grp=getAgeGroupFromAge(a)
+                    if(grp) setAgeGroup(grp)
+                  }}
+                  max={new Date().toISOString().split("T")[0]}
+                  style={{width:"100%",padding:"13px 14px",borderRadius:10,
+                    border:"2px solid #e5e7eb",fontSize:16,outline:"none",
+                    boxSizing:"border-box",fontFamily:"inherit",WebkitAppearance:"none",minHeight:50}}/>
+              </div>
+              {dob && ageGroup && (
+                <div style={{borderRadius:10,padding:"12px 14px",marginBottom:14,
+                  background:ageGroup==="adult"?"#eef1f8":"#f0fdf4",
+                  border:`1px solid ${ageGroup==="adult"?"#c7d2fe":"#bbf7d0"}`}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:13,color:ageGroup==="adult"?NAVY:GREEN,marginBottom:4}}>
+                    ✓ Age: {getAgeFromDob(dob)} years
+                  </div>
+                  <div style={{fontSize:12,color:MGRAY}}>
+                    {ageGroup==="infant"&&"Infant (0–5) · Free on all plans"}
+                    {ageGroup==="youth"&&`Youth (6–17) · P${getPrice(selectedPlan,"youth")||0}/${billing==="monthly"?"mo":"yr"}`}
+                    {ageGroup==="adult"&&`Adult (18+) · P${getPrice(selectedPlan,"adult")||0}/${billing==="monthly"?"mo":"yr"} · ID required`}
+                  </div>
+                </div>
+              )}
+              <div style={{display:"flex",gap:10,marginTop:8}}>
+                <button onClick={()=>setStep(1)} style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY,minHeight:50,WebkitTapHighlightColor:"transparent"}}>← BACK</button>
+                <button onClick={()=>{if(!dob){setError("Enter DOB.");return}setError("");setStep(3)}} disabled={!dob}
+                  style={{flex:2,padding:"14px",background:!dob?"#e5e7eb":NAVY,border:"none",borderRadius:12,cursor:!dob?"not-allowed":"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:!dob?"#aaa":WHITE,minHeight:50,WebkitTapHighlightColor:"transparent"}}>
+                  CONTINUE →
+                </button>
+              </div>
+              {error&&<div style={{color:RED,fontSize:13,marginTop:10,fontWeight:600,textAlign:"center"}}>{error}</div>}
+            </div>
+          )}
+          {step===3 && (
+            <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:22,color:NAVY,marginBottom:4}}>YOUR DETAILS</div>
+              <div style={{marginBottom:14}}>
+                <label style={{fontSize:11,fontWeight:700,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",display:"block",marginBottom:6,letterSpacing:"0.06em"}}>FULL NAME</label>
+                <input type="text" placeholder="As on your ID" value={nameVal} onChange={e=>setNameVal(e.target.value)}
+                  style={{width:"100%",padding:"13px 14px",borderRadius:10,border:"2px solid #e5e7eb",fontSize:16,outline:"none",boxSizing:"border-box",fontFamily:"inherit",WebkitAppearance:"none",minHeight:50}}/>
+              </div>
+              {needsVerify&&(
+                <>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>ID DOCUMENT TYPE</div>
+                  {ID_TYPES.map(t=>(
+                    <div key={t.id} onClick={()=>setIdType(t.id)} style={{
+                      padding:"13px 14px",borderRadius:12,cursor:"pointer",
+                      border:`2px solid ${idType===t.id?NAVY:"#e5e7eb"}`,
+                      background:idType===t.id?"#eef1f8":WHITE,
+                      display:"flex",alignItems:"center",gap:12,marginBottom:8,
+                      WebkitTapHighlightColor:"transparent",minHeight:50}}>
+                      <span style={{fontSize:22}}>{t.icon}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:15,color:NAVY}}>{t.label}</div>
+                        <div style={{fontSize:11,color:MGRAY,marginTop:1}}>{t.sides===2?"Front & back":"Front only"}</div>
+                      </div>
+                      <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,border:`2px solid ${idType===t.id?NAVY:"#ddd"}`,background:idType===t.id?NAVY:"none",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                        {idType===t.id&&<span style={{color:WHITE,fontSize:12}}>✓</span>}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+              {error&&<div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,padding:"10px 14px",color:RED,fontSize:13,marginBottom:14,fontWeight:600}}>{error}</div>}
+              <div style={{display:"flex",gap:10,marginTop:8}}>
+                <button onClick={()=>setStep(2)} style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY,minHeight:50,WebkitTapHighlightColor:"transparent"}}>← BACK</button>
+                <button onClick={()=>{
+                  if(!nameVal.trim()){setError("Please enter your name.");return}
+                  if(needsVerify&&!idType){setError("Select ID type.");return}
+                  setError("")
+                  if(needsVerify) setStep(isPaid?3.5:4)
+                  else if(isPaid) setStep(3.5)
+                  else handleSubmit()
+                }} disabled={loading}
+                  style={{flex:2,padding:"14px",background:loading?"#ccc":NAVY,border:"none",borderRadius:12,cursor:loading?"not-allowed":"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:loading?"#888":WHITE,minHeight:50,WebkitTapHighlightColor:"transparent"}}>
+                  {loading?"PLEASE WAIT...":"CONTINUE →"}
+                </button>
+              </div>
+            </div>
+          )}
+          {step===3.5 && (
+            <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch",textAlign:"center"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:22,color:NAVY,marginBottom:16}}>PAYMENT</div>
+              <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,borderRadius:14,padding:"18px 20px",marginBottom:18}}>
+                <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>{selectedPlan?.name} · {billing.toUpperCase()}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:42,color:GOLD}}>P{getPrice(selectedPlan,ageGroup)}</div>
+              </div>
+              <div style={{background:`${GOLD}18`,border:`1px solid ${GOLD}44`,borderRadius:8,padding:"12px",marginBottom:16,textAlign:"left"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:GOLD2,marginBottom:6}}>HOW TO PAY</div>
+                <div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
+                  Dial <strong>*145#</strong> or <strong>*167#</strong><br/>
+                  Send <strong>P{getPrice(selectedPlan,ageGroup)}</strong> to <strong>74000001</strong><br/>
+                  Reference: <strong>VILLAREAL-MEMBER</strong>
+                </div>
+              </div>
+              <button onClick={()=>needsVerify?setStep(4):handleSubmit()} disabled={loading}
+                style={{width:"100%",padding:"14px",background:loading?"#ccc":GREEN,border:"none",borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:WHITE,minHeight:50}}>
+                {loading?"PROCESSING...":needsVerify?"NEXT: VERIFY ID →":"COMPLETE →"}
+              </button>
+            </div>
+          )}
+          {step===4 && (
+            <div style={{flex:1,overflowY:"auto",padding:"20px 14px",WebkitOverflowScrolling:"touch"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:22,color:NAVY,marginBottom:14}}>VERIFY YOUR IDENTITY</div>
+              <div style={{fontSize:13,color:MGRAY,marginBottom:14,lineHeight:1.6}}>Documents are encrypted and used only for verification.</div>
+              {/* ID Front */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>ID FRONT</div>
+                {idFront?(
+                  <div style={{position:"relative",borderRadius:12,overflow:"hidden",border:`2px solid ${GREEN}`}}>
+                    <img src={idFront} alt="ID Front" style={{width:"100%",height:140,objectFit:"cover",display:"block"}}/>
+                    <button onClick={()=>setIdFront(null)} style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,cursor:"pointer"}}>Retake</button>
+                  </div>
+                ):(
+                  <button onClick={()=>capturePhoto(setIdFront)} style={{width:"100%",height:110,borderRadius:12,border:`2px dashed ${NAVY}`,background:"#f8f9fb",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+                    <span style={{fontSize:28}}>📷</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:NAVY}}>TAP TO CAPTURE FRONT</span>
+                  </button>
+                )}
+              </div>
+              {/* Selfie */}
+              <div style={{marginBottom:16}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>🤳 SELFIE</div>
+                {selfie?(
+                  <div style={{position:"relative",borderRadius:12,overflow:"hidden",border:`2px solid ${GREEN}`}}>
+                    <img src={selfie} alt="Selfie" style={{width:"100%",height:160,objectFit:"cover",display:"block"}}/>
+                    <button onClick={()=>setSelfie(null)} style={{position:"absolute",top:6,left:6,background:"rgba(0,0,0,0.6)",border:"none",borderRadius:20,padding:"2px 8px",fontSize:10,color:WHITE,cursor:"pointer"}}>Retake</button>
+                  </div>
+                ):(
+                  <button onClick={()=>captureSelfie(setSelfie)} style={{width:"100%",height:130,borderRadius:12,border:`2px dashed ${GOLD2}`,background:"#fffbea",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:6,cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+                    <span style={{fontSize:32}}>🤳</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:13,color:NAVY}}>TAP TO TAKE SELFIE</span>
+                  </button>
+                )}
+              </div>
+              {error&&<div style={{background:"#fef2f2",border:`1px solid #fecaca`,borderRadius:8,padding:"10px 14px",color:RED,fontSize:13,marginBottom:12,fontWeight:600}}>{error}</div>}
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>setStep(3)} style={{flex:1,padding:"14px",background:"#f0f0f0",border:"none",borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY,minHeight:50,WebkitTapHighlightColor:"transparent"}}>← BACK</button>
+                <button onClick={()=>{
+                  if(!idFront){setError("Capture ID front.");return}
+                  if(!selfie){setError("Take a selfie.");return}
+                  setError(""); handleSubmit()
+                }} disabled={loading||!idFront||!selfie}
+                  style={{flex:2,padding:"14px",background:loading||!idFront||!selfie?"#e5e7eb":NAVY,border:"none",borderRadius:12,cursor:loading||!idFront||!selfie?"not-allowed":"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:loading||!idFront||!selfie?"#aaa":WHITE,minHeight:50,WebkitTapHighlightColor:"transparent"}}>
+                  {loading?"SUBMITTING...":"SUBMIT →"}
+                </button>
+              </div>
+            </div>
+          )}
+          {isDone && (
+            <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"32px 24px",textAlign:"center"}}>
+              <div style={{fontSize:60,marginBottom:12}}>🎉</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:24,color:NAVY,marginBottom:8}}>
+                {needsVerify?"APPLICATION SUBMITTED!":"WELCOME TO THE FAMILY!"}
+              </div>
+              <div style={{fontSize:14,color:MGRAY,lineHeight:1.7,marginBottom:24,maxWidth:300}}>
+                {needsVerify?"Your identity is under review. You'll get an email within 24–48 hours once approved.":`You're now a ${selectedPlan?.name} member! Welcome 🦡⚽`}
+              </div>
+              <button onClick={onClose} style={{width:"100%",maxWidth:320,padding:"15px",background:NAVY,border:"none",borderRadius:12,cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,color:WHITE,WebkitTapHighlightColor:"transparent",minHeight:50}}>
+                {needsVerify?"GO TO MY PROFILE →":"START EXPLORING 🟡"}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   )
 }
 
-
 /* ══════════════════════════════════════════════════════════════════════════════
-   STATUS BAR — real time, network, battery
+   STATUS BAR
 ══════════════════════════════════════════════════════════════════════════════ */
 const StatusBar = ({ dark }) => {
   const [time,    setTime]    = useState("")
-  const [battery, setBattery] = useState(null)   // { level, charging }
-  const [network, setNetwork] = useState("WIFI")  // WIFI | 4G | 3G | 2G | offline
+  const [battery, setBattery] = useState(null)
+  const [network, setNetwork] = useState("WIFI")
 
-  // Real clock
   useEffect(() => {
     const tick = () => {
-      const now = new Date()
-      const h = now.getHours().toString().padStart(2,"0")
-      const m = now.getMinutes().toString().padStart(2,"0")
-      setTime(`${h}:${m}`)
+      const now=new Date()
+      setTime(`${now.getHours().toString().padStart(2,"0")}:${now.getMinutes().toString().padStart(2,"0")}`)
     }
-    tick()
-    const id = setInterval(tick, 10000) // update every 10s
-    return () => clearInterval(id)
-  }, [])
+    tick(); const id=setInterval(tick,10000); return()=>clearInterval(id)
+  },[])
 
-  // Real battery (supported in Chrome/Android)
-  useEffect(() => {
-    if (navigator.getBattery) {
-      navigator.getBattery().then(bat => {
-        const update = () => setBattery({
-          level: Math.round(bat.level * 100),
-          charging: bat.charging,
-        })
+  useEffect(()=>{
+    if(navigator.getBattery){
+      navigator.getBattery().then(bat=>{
+        const update=()=>setBattery({level:Math.round(bat.level*100),charging:bat.charging})
         update()
-        bat.addEventListener("levelchange",   update)
-        bat.addEventListener("chargingchange", update)
-        return () => {
-          bat.removeEventListener("levelchange",   update)
-          bat.removeEventListener("chargingchange", update)
-        }
-      }).catch(() => setBattery(null))
+        bat.addEventListener("levelchange",update); bat.addEventListener("chargingchange",update)
+        return()=>{ bat.removeEventListener("levelchange",update); bat.removeEventListener("chargingchange",update) }
+      }).catch(()=>setBattery(null))
     }
-  }, [])
+  },[])
 
-  // Real network type
-  useEffect(() => {
-    const detect = () => {
-      if (!navigator.onLine) { setNetwork("OFFLINE"); return }
-      const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
-      if (!conn) {
-        // Fallback — check if page loaded via localhost or https (likely wifi)
-        setNetwork("WIFI")
-        return
-      }
-      const type = conn.type || ""
-      const eff  = conn.effectiveType || ""
-      if (type === "wifi" || type === "ethernet") {
-        setNetwork("WIFI")
-      } else if (eff === "4g") {
-        setNetwork("4G")
-      } else if (eff === "3g") {
-        setNetwork("3G")
-      } else if (eff === "2g" || eff === "slow-2g") {
-        setNetwork("2G")
-      } else {
-        setNetwork("WIFI")
-      }
+  useEffect(()=>{
+    const detect=()=>{
+      if(!navigator.onLine){setNetwork("OFFLINE");return}
+      const conn=navigator.connection||navigator.mozConnection||navigator.webkitConnection
+      if(!conn){setNetwork("WIFI");return}
+      const type=conn.type||""; const eff=conn.effectiveType||""
+      if(type==="wifi"||type==="ethernet") setNetwork("WIFI")
+      else if(eff==="4g") setNetwork("4G")
+      else if(eff==="3g") setNetwork("3G")
+      else if(eff==="2g"||eff==="slow-2g") setNetwork("2G")
+      else setNetwork("WIFI")
     }
     detect()
-    window.addEventListener("online",  detect)
-    window.addEventListener("offline", detect)
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection
-    if (conn) conn.addEventListener("change", detect)
-    return () => {
-      window.removeEventListener("online",  detect)
-      window.removeEventListener("offline", detect)
-      if (conn) conn.removeEventListener("change", detect)
-    }
-  }, [])
+    window.addEventListener("online",detect); window.addEventListener("offline",detect)
+    const conn=navigator.connection||navigator.mozConnection||navigator.webkitConnection
+    if(conn) conn.addEventListener("change",detect)
+    return()=>{ window.removeEventListener("online",detect); window.removeEventListener("offline",detect); if(conn) conn.removeEventListener("change",detect) }
+  },[])
 
-  const textColor = dark ? WHITE : NAVY
-  const bgColor   = dark ? "#000" : WHITE
+  const textColor=dark?WHITE:NAVY
+  const bgColor=dark?"#000":WHITE
 
-  // Battery icon
-  const BatteryIcon = () => {
-    if (!battery) return null
-    const pct   = battery.level
-    const color = pct <= 20 ? RED : pct <= 50 ? "#f39c12" : GREEN
-    const width = Math.max(2, Math.round(pct / 100 * 16))
+  const BatteryIcon=()=>{
+    if(!battery) return null
+    const pct=battery.level
+    const color=pct<=20?RED:pct<=50?"#f39c12":GREEN
+    const width=Math.max(2,Math.round(pct/100*16))
     return (
       <div style={{display:"flex",alignItems:"center",gap:2}}>
-        {battery.charging && (
-          <span style={{fontSize:9,color:GREEN}}>⚡</span>
-        )}
-        <div style={{width:20,height:10,borderRadius:2,
-          border:`1.5px solid ${textColor}`,position:"relative",
-          display:"flex",alignItems:"center",paddingLeft:1}}>
-          <div style={{width:width,height:6,borderRadius:1,background:color}}/>
-          {/* Battery tip */}
-          <div style={{position:"absolute",right:-3,top:"50%",
-            transform:"translateY(-50%)",width:2,height:5,
-            background:textColor,borderRadius:"0 1px 1px 0"}}/>
+        {battery.charging&&<span style={{fontSize:9,color:GREEN}}>⚡</span>}
+        <div style={{width:20,height:10,borderRadius:2,border:`1.5px solid ${textColor}`,position:"relative",display:"flex",alignItems:"center",paddingLeft:1}}>
+          <div style={{width,height:6,borderRadius:1,background:color}}/>
+          <div style={{position:"absolute",right:-3,top:"50%",transform:"translateY(-50%)",width:2,height:5,background:textColor,borderRadius:"0 1px 1px 0"}}/>
         </div>
         <span style={{fontSize:9,fontWeight:700,color:textColor}}>{pct}%</span>
       </div>
     )
   }
 
-  // Network icon
-  const NetworkIcon = () => {
-    if (network === "WIFI") return (
+  const NetworkIcon=()=>{
+    if(network==="WIFI") return (
       <svg width="14" height="12" viewBox="0 0 24 20" fill={textColor}>
         <path d="M1 7.5C5.5 3 10.5 1 12 1s6.5 2 11 6.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
         <path d="M4.5 11.5C7 9 10 8 12 8s5 1 7.5 3.5" stroke={textColor} strokeWidth="2.5" fill="none" strokeLinecap="round"/>
@@ -4160,19 +3322,12 @@ const StatusBar = ({ dark }) => {
         <circle cx="12" cy="19" r="1.5" fill={textColor}/>
       </svg>
     )
-    if (network === "OFFLINE") return (
-      <span style={{fontSize:10,color:RED,fontWeight:700}}>✕</span>
-    )
-    // 4G / 3G / 2G bars
-    const bars = network === "4G" ? 4 : network === "3G" ? 3 : 2
+    if(network==="OFFLINE") return <span style={{fontSize:10,color:RED,fontWeight:700}}>✕</span>
+    const bars=network==="4G"?4:network==="3G"?3:2
     return (
       <div style={{display:"flex",alignItems:"flex-end",gap:1.5}}>
         {[1,2,3,4].map(b=>(
-          <div key={b} style={{
-            width:3,borderRadius:1,
-            height:3+b*2,
-            background:b<=bars?textColor:`${textColor}40`,
-          }}/>
+          <div key={b} style={{width:3,borderRadius:1,height:3+b*2,background:b<=bars?textColor:`${textColor}40`}}/>
         ))}
         <span style={{fontSize:9,fontWeight:700,color:textColor,marginLeft:2}}>{network}</span>
       </div>
@@ -4180,24 +3335,16 @@ const StatusBar = ({ dark }) => {
   }
 
   return (
-    <div style={{
-      background:bgColor,
-      padding:"8px 16px 6px",
-      display:"flex",justifyContent:"space-between",alignItems:"center",
-      flexShrink:0,
-    }}>
+    <div style={{background:bgColor,padding:"8px 16px 6px",
+      display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
       <span style={{fontSize:13,fontWeight:700,color:textColor,
-        fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.02em"}}>
-        {time}
-      </span>
+        fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.02em"}}>{time}</span>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
-        <NetworkIcon/>
-        <BatteryIcon/>
+        <NetworkIcon/><BatteryIcon/>
       </div>
     </div>
   )
 }
-
 
 /* ══════════════════════════════════════════════════════════════════════════════
    ROOT
@@ -4212,20 +3359,12 @@ export default function App(){
   const [showMembership,setShowMembership]=useState(false)
 
   useEffect(()=>{
-    // Handle email confirmation redirect — Supabase puts token in URL hash
-    supabase.auth.getSession().then(({data:{session}})=>{
-      setSession(session)
-      setBooting(false)
-    })
+    supabase.auth.getSession().then(({data:{session}})=>{ setSession(session); setBooting(false) })
     const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
       setSession(session)
-      // SIGNED_IN fires when email link is clicked and user lands on site
-      if(event==="SIGNED_IN"&&session){
-        setActiveTab("profile")
-        setShowAuth(false)
-      }
+      if(event==="SIGNED_IN"&&session){ setActiveTab("profile"); setShowAuth(false) }
     })
-    return ()=>subscription.unsubscribe()
+    return()=>subscription.unsubscribe()
   },[])
 
   useEffect(()=>{
@@ -4255,22 +3394,15 @@ export default function App(){
     </div>
   )
 
-  const HEADER_LABELS={foryou:null,calendar:"CALENDAR",clips:null,store:"STORE",profile:null}
-  const hdr=HEADER_LABELS[activeTab]
-
   const renderScreen=()=>{
-    if(showMembership) return null // rendered as overlay
-    if(showAuth) return <AuthScreen
-      onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}}
-      onGuest={()=>setShowAuth(false)}/>
+    if(showMembership) return null
+    if(showAuth) return <AuthScreen onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}} onGuest={()=>setShowAuth(false)}/>
     switch(activeTab){
       case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
       case "calendar": return <CalendarScreen/>
       case "clips":    return <ClipsScreen/>
       case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)} session={session} profile={profile}/>
-      case "profile":  return <ProfileScreen session={session} profile={profile}
-                         onLogout={handleLogout} goToAuth={goToAuth}
-                         openMembership={()=>setShowMembership(true)}/>
+      case "profile":  return <ProfileScreen session={session} profile={profile} onLogout={handleLogout} goToAuth={goToAuth} openMembership={()=>setShowMembership(true)}/>
       default:         return <ForYouScreen goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
     }
   }
@@ -4285,66 +3417,35 @@ export default function App(){
         body{
           background:#0D1B3E;
           font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-          min-height:100vh;
-          min-height:100dvh;
+          min-height:100vh; min-height:100dvh;
           -webkit-font-smoothing:antialiased;
         }
         .phone-frame { --clip-h: calc(680px - 180px); }
         @media(max-width:519px){ .phone-frame { --clip-h: calc(100dvh - 130px); } }
         input,button{font-family:inherit}
         input{-webkit-appearance:none;appearance:none}
-
         .app-root{
-          display:flex;
-          flex-direction:column;
-          min-height:100vh;
-          min-height:100dvh;
+          display:flex; flex-direction:column;
+          min-height:100vh; min-height:100dvh;
           background:linear-gradient(160deg,${NAVY} 0%,#0a1020 100%);
         }
-        .app-strip{
-          padding:14px 16px 8px;
-          display:flex;
-          align-items:center;
-          gap:12px;
-        }
+        .app-strip{padding:14px 16px 8px;display:flex;align-items:center;gap:12px;}
         .phone-frame{
-          flex:1;
-          display:flex;
-          flex-direction:column;
-          background:#fff;
-          overflow:hidden;
-          position:relative;
-          /* Critical: prevents content from pushing nav off screen */
-          min-height:0;
+          flex:1;display:flex;flex-direction:column;
+          background:#fff;overflow:hidden;position:relative;min-height:0;
         }
         @media(min-width:520px){
-          .app-root{
-            align-items:center;
-            padding:16px 0 24px;
-          }
-          .app-strip,.phone-frame{
-            width:100%;
-            max-width:430px;
-          }
+          .app-root{align-items:center;padding:16px 0 24px;}
+          .app-strip,.phone-frame{width:100%;max-width:430px;}
           .phone-frame{
-            flex:none;
-            height:760px;
-            border-radius:38px;
+            flex:none;height:760px;border-radius:38px;
             border:7px solid #1c1c1c;
             box-shadow:0 28px 70px rgba(0,0,0,0.75),inset 0 0 0 1px rgba(255,255,255,0.07);
           }
         }
-        /* On real mobile, full height with nav always visible */
         @media(max-width:519px){
-          .app-root{
-            min-height:100vh;
-            min-height:100dvh;
-          }
-          .phone-frame{
-            flex:1;
-            min-height:0;
-            border-radius:0;
-          }
+          .app-root{min-height:100vh;min-height:100dvh;}
+          .phone-frame{flex:1;min-height:0;border-radius:0;}
         }
       `}</style>
 
@@ -4364,22 +3465,7 @@ export default function App(){
         </div>
 
         <div className="phone-frame" style={{position:"relative"}}>
-          {/* Status bar — real time, network, battery */}
           <StatusBar dark={activeTab==="clips"||showAuth}/>
-
-          {/* Section header */}
-          {hdr&&!showAuth&&(
-            <div style={{padding:"8px 16px",background:WHITE,display:"flex",
-              alignItems:"center",justifyContent:"space-between",
-              borderBottom:`1px solid #eee`,flexShrink:0}}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <Logo size={28}/>
-                <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:"clamp(16px,5vw,20px)",color:NAVY}}>{hdr}</span>
-              </div>
-
-            </div>
-          )}
 
           <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minHeight:0}}>
             {renderScreen()}
@@ -4392,30 +3478,17 @@ export default function App(){
             <div style={{width:110,height:4,background:"#ddd",borderRadius:2}}/>
           </div>
 
-          {/* Membership modal — inside phone frame, slides over content, nav stays visible */}
           {showMembership&&(
             <div style={{position:"absolute",inset:0,zIndex:200,
               display:"flex",flexDirection:"column",
-              background:"rgba(0,0,0,0.6)",
-              borderRadius:"inherit"}}>
+              background:"rgba(0,0,0,0.6)",borderRadius:"inherit"}}>
               <MembershipPage
                 session={session}
                 onClose={()=>setShowMembership(false)}
-                onSuccess={()=>{
-                  setShowMembership(false)
-                  setActiveTab("profile")
-                }}
+                onSuccess={()=>{ setShowMembership(false); setActiveTab("profile") }}
               />
             </div>
           )}
-        </div>
-
-        <div style={{textAlign:"center",padding:"10px 0 0",display:"none"}}
-          className="desktop-footer">
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",color:"#444",
-            fontSize:11,letterSpacing:"0.06em"}}>
-            BOTETI REGIONAL FA · DIVISION ONE 2026/27
-          </span>
         </div>
       </div>
     </>
