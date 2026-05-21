@@ -1108,349 +1108,72 @@ const ClipsScreen = () => {
 /* ══════════════════════════════════════════════════════════════════════════════
    CUSTOMIZE JERSEY SCREEN  (dedicated standalone section)
 ══════════════════════════════════════════════════════════════════════════════ */
-const ADULT_SIZES  = ["XS","S","M","L","XL","XXL","XXXL","XXXXL"]
-const KIDS_SIZES   = ["2Y","3Y","4Y","5Y","6Y","7Y","8Y","9Y","10Y","11Y","12Y","13Y","14Y","15Y","16Y"]
-const KIT_OPTIONS  = [
-  { id:"home",  label:"Home Kit 2026/27",  emoji:"🟡", desc:"Navy & Gold",   price:280 },
-  { id:"away",  label:"Away Kit 2026/27",  emoji:"⬜", desc:"White & Gold",  price:260 },
-  { id:"third", label:"Training Kit",      emoji:"💪", desc:"Performance",   price:180 },
-  { id:"gk",    label:"GK Kit 2026/27",    emoji:"🧤", desc:"Limited Ed.",   price:300 },
-]
-
-const CustomizeScreen = ({ cart, setCart, openMembership, profile }) => {
-  const isMember = !!profile?.is_member
-  const memberDisc = isMember ? 5 : 0
-
-  const [kit,        setKit]        = useState("home")
-  const [variant,    setVariant]    = useState("Men")
-  const [sizeGroup,  setSizeGroup]  = useState("adult")
-  const [size,       setSize]       = useState("")
-  const [nameMode,   setNameMode]   = useState("player") // player | custom
-  const [selPlayer,  setSelPlayer]  = useState("")
-  const [customName, setCustomName] = useState("")
-  const [number,     setNumber]     = useState("")
-  const [addedMsg,   setAddedMsg]   = useState(false)
-
-  const selectedKit = KIT_OPTIONS.find(k => k.id === kit)
-  const finalPrice  = Math.round((selectedKit?.price || 280) * (1 - memberDisc/100))
-  const displayName = nameMode === "player" ? selPlayer : customName
-  const displayNum  = number || "10"
-  const sizes       = sizeGroup === "adult" ? ADULT_SIZES : KIDS_SIZES
-
-  const handleAddToCart = () => {
-    if (!size) return
-    const item = {
-      id: `custom_${kit}_${size}_${Date.now()}`,
-      cartId: `custom_${kit}_${size}_${Date.now()}`,
-      name: `${selectedKit.label} (Custom)`,
-      collection: kit,
-      quality: "Stadium",
-      price: selectedKit.price,
-      variant,
-      size,
-      customName: nameMode === "custom" ? customName : "",
-      player: nameMode === "player" ? selPlayer : "",
-      number,
-      qty: 1,
-    }
-    setCart(prev => [...prev, item])
-    setAddedMsg(true)
-    setTimeout(() => setAddedMsg(false), 2000)
-  }
-
-  /* Jersey preview SVG */
-  const JerseyPreview = () => {
-    const kitColors = {
-      home:  { body: NAVY,    accent: GOLD,    text: GOLD },
-      away:  { body: "#f5f5f5", accent: GOLD,  text: NAVY },
-      third: { body: "#1a4a1a", accent: "#4ade80", text: "#4ade80" },
-      gk:    { body: "#3a0090", accent: "#a78bfa", text: "#a78bfa" },
-    }
-    const c = kitColors[kit] || kitColors.home
-    return (
-      <svg viewBox="0 0 200 220" width="100%" style={{maxHeight:200,display:"block",margin:"0 auto"}}>
-        {/* Body */}
-        <path d="M50 50 L20 80 L35 90 L35 190 L165 190 L165 90 L180 80 L150 50 L130 65 Q100 75 70 65 Z"
-          fill={c.body} stroke={c.accent} strokeWidth="3"/>
-        {/* Collar */}
-        <path d="M85 52 Q100 65 115 52" fill="none" stroke={c.accent} strokeWidth="3"/>
-        {/* Left sleeve */}
-        <path d="M50 50 L20 80 L35 90 L55 75 Z" fill={c.accent} stroke={c.accent} strokeWidth="1"/>
-        {/* Right sleeve */}
-        <path d="M150 50 L180 80 L165 90 L145 75 Z" fill={c.accent} stroke={c.accent} strokeWidth="1"/>
-        {/* Stripe */}
-        <path d="M35 110 L165 110" stroke={c.accent} strokeWidth="2" opacity="0.5"/>
-        {/* Name */}
-        {displayName && (
-          <text x="100" y="150" textAnchor="middle" fontFamily="'Barlow Condensed',sans-serif"
-            fontWeight="900" fontSize="16" fill={c.text} letterSpacing="2">
-            {displayName.slice(0,12).toUpperCase()}
-          </text>
-        )}
-        {/* Number */}
-        <text x="100" y="180" textAnchor="middle" fontFamily="'Barlow Condensed',sans-serif"
-          fontWeight="900" fontSize="28" fill={c.text}>
-          {displayNum}
-        </text>
-      </svg>
-    )
+const JerseyPreview = () => {
+  const jerseyImages = {
+    home: "/kits/home-front.png",
+    away: "/kits/away-front.png",
+    third: "/kits/third-front.png",
+    gk: "/kits/gk-front.png",
   }
 
   return (
-    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
-      {/* Header */}
-      <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-        padding:"16px 16px 14px"}}>
-        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:26,color:WHITE,lineHeight:1}}>CUSTOMIZE YOUR JERSEY</div>
-        <div style={{fontSize:12,color:"#aab4cc",marginTop:3}}>
-          Real Villareal FC players · Your name · Your number
-        </div>
-        {isMember && (
-          <div style={{marginTop:8,display:"inline-flex",alignItems:"center",gap:5,
-            background:`${GREEN}33`,border:`1px solid ${GREEN}66`,
-            borderRadius:6,padding:"3px 10px",fontSize:11,color:GREEN,fontWeight:700}}>
-            🦡 Member discount: 5% off
-          </div>
-        )}
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        maxWidth: 280,
+        margin: "0 auto",
+      }}
+    >
+      {/* Jersey Base */}
+      <img
+        src={jerseyImages[kit]}
+        alt="jersey"
+        style={{
+          width: "100%",
+          display: "block",
+        }}
+      />
+
+      {/* Player Name */}
+      <div
+        style={{
+          position: "absolute",
+          top: "62%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontWeight: 900,
+          fontSize: 18,
+          color: "white",
+          letterSpacing: 2,
+          textTransform: "uppercase",
+          textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+        }}
+      >
+        {(displayName || "ANDREWS").slice(0, 12)}
       </div>
 
-      <div style={{padding:"14px 14px 20px",display:"flex",flexDirection:"column",gap:16}}>
-
-        {/* Jersey Live Preview */}
-        <div style={{background:WHITE,borderRadius:16,padding:"16px",
-          boxShadow:"0 2px 12px rgba(0,0,0,0.08)",overflow:"hidden"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:12}}>
-            LIVE PREVIEW
-          </div>
-          <JerseyPreview/>
-          <div style={{textAlign:"center",marginTop:8}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:22,color:NAVY}}>
-              P{finalPrice}
-              {isMember && <span style={{fontSize:12,color:MGRAY,textDecoration:"line-through",
-                marginLeft:6}}>P{selectedKit?.price}</span>}
-            </div>
-            {isMember && <div style={{fontSize:11,color:GREEN,fontWeight:700}}>🦡 Member price</div>}
-          </div>
-        </div>
-
-        {/* Kit selection */}
-        <div style={{background:WHITE,borderRadius:14,padding:"14px",
-          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
-            1. SELECT KIT
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-            {KIT_OPTIONS.map(k=>(
-              <button key={k.id} onClick={()=>setKit(k.id)} style={{
-                padding:"10px 12px",borderRadius:10,
-                border:`2px solid ${kit===k.id?NAVY:"#e5e7eb"}`,
-                background:kit===k.id?"#eef1f8":WHITE,
-                cursor:"pointer",textAlign:"left",
-                WebkitTapHighlightColor:"transparent",minHeight:54,
-              }}>
-                <div style={{fontSize:20,marginBottom:2}}>{k.emoji}</div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:12,color:NAVY,lineHeight:1.2}}>{k.label}</div>
-                <div style={{fontSize:10,color:MGRAY}}>{k.desc} · P{k.price}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Variant & size group */}
-        <div style={{background:WHITE,borderRadius:14,padding:"14px",
-          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
-            2. CUT & SIZE
-          </div>
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
-            {["Men","Women","Junior"].map(v=>(
-              <button key={v} onClick={()=>{setVariant(v);setSizeGroup(v==="Junior"?"kids":"adult");setSize("")}}
-                style={{
-                  flex:1,padding:"9px 0",borderRadius:9,
-                  border:`2px solid ${variant===v?NAVY:"#e5e7eb"}`,
-                  background:variant===v?NAVY:WHITE,
-                  color:variant===v?WHITE:NAVY,
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:13,
-                  cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                }}>
-                {v}
-              </button>
-            ))}
-          </div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-            fontSize:10,color:MGRAY,marginBottom:8,letterSpacing:"0.06em"}}>SIZE</div>
-          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-            {sizes.map(sz=>(
-              <button key={sz} onClick={()=>setSize(sz)} style={{
-                minWidth:42,height:42,borderRadius:8,
-                border:`2px solid ${size===sz?NAVY:"#e5e7eb"}`,
-                background:size===sz?NAVY:WHITE,
-                color:size===sz?WHITE:NAVY,
-                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:12,cursor:"pointer",padding:"0 6px",
-                WebkitTapHighlightColor:"transparent",
-              }}>{sz}</button>
-            ))}
-          </div>
-        </div>
-
-        {/* Name & Number */}
-        <div style={{background:WHITE,borderRadius:14,padding:"14px",
-          boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
-            3. NAME & NUMBER
-          </div>
-
-          {/* Toggle: player name or custom */}
-          <div style={{display:"flex",gap:8,marginBottom:12}}>
-            <button onClick={()=>setNameMode("player")} style={{
-              flex:1,padding:"10px 0",borderRadius:9,
-              border:`2px solid ${nameMode==="player"?GOLD:"#e5e7eb"}`,
-              background:nameMode==="player"?`${GOLD}22`:WHITE,
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
-              color:nameMode==="player"?NAVY:MGRAY,cursor:"pointer",
-              WebkitTapHighlightColor:"transparent",
-            }}>
-              ⚽ Player Name
-            </button>
-            <button onClick={()=>setNameMode("custom")} style={{
-              flex:1,padding:"10px 0",borderRadius:9,
-              border:`2px solid ${nameMode==="custom"?GOLD:"#e5e7eb"}`,
-              background:nameMode==="custom"?`${GOLD}22`:WHITE,
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,fontSize:12,
-              color:nameMode==="custom"?NAVY:MGRAY,cursor:"pointer",
-              WebkitTapHighlightColor:"transparent",
-            }}>
-              ✏️ Your Name
-            </button>
-          </div>
-
-          {nameMode === "player" ? (
-            <>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                fontSize:10,color:MGRAY,marginBottom:8,letterSpacing:"0.06em"}}>
-                SELECT VILLAREAL FC PLAYER
-              </div>
-              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                {REAL_PLAYER_NAMES.map(pn=>(
-                  <button key={pn} onClick={()=>setSelPlayer(pn)} style={{
-                    padding:"6px 12px",borderRadius:8,
-                    border:`2px solid ${selPlayer===pn?NAVY:"#e5e7eb"}`,
-                    background:selPlayer===pn?NAVY:WHITE,
-                    color:selPlayer===pn?WHITE:NAVY,
-                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,fontSize:11,
-                    cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                  }}>{pn}</button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                fontSize:10,color:MGRAY,marginBottom:6,letterSpacing:"0.06em"}}>
-                YOUR NAME (MAX 12 CHARS)
-              </div>
-              <input
-                placeholder="e.g. MOTSWEDI"
-                value={customName}
-                onChange={e=>setCustomName(e.target.value.toUpperCase().slice(0,12))}
-                style={{width:"100%",padding:"11px 12px",borderRadius:9,
-                  border:`2px solid ${customName?GOLD:"#e5e7eb"}`,fontSize:15,
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  letterSpacing:"0.08em",outline:"none",boxSizing:"border-box",
-                  marginBottom:4}}/>
-            </>
-          )}
-
-          <div style={{marginTop:12}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-              fontSize:10,color:MGRAY,marginBottom:6,letterSpacing:"0.06em"}}>
-              SQUAD NUMBER (1–99)
-            </div>
-            <input
-              type="number"
-              placeholder="e.g. 10"
-              value={number}
-              min={1} max={99}
-              onChange={e=>setNumber(e.target.value.slice(0,2))}
-              style={{width:"100%",padding:"11px 12px",borderRadius:9,
-                border:`2px solid ${number?GOLD:"#e5e7eb"}`,fontSize:20,
-                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                textAlign:"center",outline:"none",boxSizing:"border-box",
-                WebkitAppearance:"none"}}/>
-          </div>
-        </div>
-
-        {/* Member upsell */}
-        {!isMember && (
-          <div onClick={openMembership}
-            style={{background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
-              borderRadius:12,padding:"12px 16px",
-              display:"flex",alignItems:"center",justifyContent:"space-between",
-              cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
-            <div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:13,color:NAVY}}>🦡 JOIN HONEY BADGER — SAVE 5% ON JERSEYS</div>
-              <div style={{fontSize:11,color:"rgba(13,27,62,0.7)",marginTop:2}}>
-                Plus exclusive promo codes & early access
-              </div>
-            </div>
-            <div style={{background:NAVY,color:GOLD,fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:900,fontSize:11,padding:"5px 10px",borderRadius:6,flexShrink:0}}>
-              JOIN →
-            </div>
-          </div>
-        )}
-
-        {/* Add to cart */}
-        <div>
-          <button
-            onClick={handleAddToCart}
-            disabled={!size || (nameMode==="player"&&!selPlayer) || (nameMode==="custom"&&!customName.trim())}
-            style={{
-              width:"100%",padding:"16px",
-              background:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
-                ?"#e5e7eb":NAVY,
-              border:"none",borderRadius:12,
-              cursor:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
-                ?"not-allowed":"pointer",
-              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:17,
-              color:(!size||(nameMode==="player"&&!selPlayer)||(nameMode==="custom"&&!customName.trim()))
-                ?"#aaa":WHITE,
-              minHeight:54,WebkitTapHighlightColor:"transparent",
-              boxShadow:size?"0 4px 14px rgba(13,27,62,0.3)":"none",
-              transition:"all 0.15s",letterSpacing:"0.04em",
-              position:"relative",
-            }}>
-            {addedMsg
-              ? "✓ ADDED TO CART!"
-              : !size
-                ? "SELECT A SIZE TO CONTINUE"
-                : (nameMode==="player"&&!selPlayer)
-                  ? "SELECT A PLAYER NAME"
-                  : (nameMode==="custom"&&!customName.trim())
-                    ? "ENTER YOUR NAME"
-                    : `ADD CUSTOM JERSEY — P${finalPrice}`}
-          </button>
-          {addedMsg && (
-            <div style={{textAlign:"center",fontSize:12,color:GREEN,marginTop:6,fontWeight:700}}>
-              ✓ Check your cart to complete your order!
-            </div>
-          )}
-        </div>
-
+      {/* Jersey Number */}
+      <div
+        style={{
+          position: "absolute",
+          top: "72%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontWeight: 900,
+          fontSize: 48,
+          color: "white",
+          lineHeight: 1,
+          textShadow: "0 2px 4px rgba(0,0,0,0.5)",
+        }}
+      >
+        {displayNum || "8"}
       </div>
     </div>
   )
 }
-
 /* ══════════════════════════════════════════════════════════════════════════════
    STORE
 ══════════════════════════════════════════════════════════════════════════════ */
