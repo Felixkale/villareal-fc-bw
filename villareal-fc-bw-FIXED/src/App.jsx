@@ -871,6 +871,8 @@ const ClipsScreen = () => {
           WebkitOverflowScrolling:"touch",
           scrollbarWidth:"none",
           msOverflowStyle:"none",
+          display:"flex",
+          flexDirection:"column",
         }}>
 
         {CLIPS_DATA.map((clip, i) => {
@@ -883,8 +885,9 @@ const ClipsScreen = () => {
               key={clip.id}
               ref={el => clipRefs.current[i] = el}
               style={{
-                height:"100%",
-                minHeight:"100%",
+                height:"var(--clip-h,100vh)",
+                minHeight:"var(--clip-h,100vh)",
+                flexShrink:0,
                 scrollSnapAlign:"start",
                 scrollSnapStop:"always",
                 position:"relative",
@@ -1171,610 +1174,1220 @@ const ClipsScreen = () => {
 /* ══════════════════════════════════════════════════════════════════════════════
    STORE
 ══════════════════════════════════════════════════════════════════════════════ */
-const StoreScreen=({goToAuth,fixtures,openMembership})=>{
-  const [subTab,    setSubTab]    = useState("shop")
-  const [shopSec,   setShopSec]   = useState("adults")  // adults | kids
-  const [cart,      setCart]      = useState([])
-  const [showCart,  setShowCart]  = useState(false)
-  const [selItem,   setSelItem]   = useState(null)   // product detail modal
-  const [selSize,   setSelSize]   = useState("")
-  const [selSeason, setSelSeason] = useState("")
+const StoreScreen=({goToAuth,fixtures,openMembership,session,profile})=>{
+  const [subTab,      setSubTab]      = useState("shop")
+  const [shopView,    setShopView]    = useState("home")   // home|collection|product|cart|checkout
+  const [activeCol,   setActiveCol]   = useState(null)
+  const [selProduct,  setSelProduct]  = useState(null)
+  const [selSize,     setSelSize]     = useState("")
+  const [selVariant,  setSelVariant]  = useState("Men")
+  const [selQuality,  setSelQuality]  = useState("Stadium")
+  const [customName,  setCustomName]  = useState("")
+  const [customMode,  setCustomMode]  = useState("player")  // player|name
+  const [selPlayer,   setSelPlayer]   = useState("")
+  const [cart,        setCart]        = useState([])
+  const [promoCode,   setPromoCode]   = useState("")
+  const [promoInput,  setPromoInput]  = useState("")
+  const [promoMsg,    setPromoMsg]    = useState(null)  // {ok,text,pct}
+  const [checkStep,   setCheckStep]   = useState(1)     // 1=review,2=payment,3=done
+  const [payMethod,   setPayMethod]   = useState("")
+  const [payRef,      setPayRef]      = useState("")
+  const isMember = !!profile?.is_member
 
-  /* ── CATALOGUE ──────────────────────────────────────────────────── */
+  /* ─── PROMO CODES ─── */
+  const PROMOS = {
+    "HONEYBADGER10": { pct:10, label:"10% off — Honey Badger exclusive!", memberOnly:false },
+    "FARMERSDAY":    { pct:15, label:"15% off — Boteti West Farmers Day!", memberOnly:false },
+    "MEMBER20":      { pct:20, label:"20% off — Member loyalty reward!",  memberOnly:true  },
+    "SEASON2627":    { pct:5,  label:"5% off — 2026/27 season launch!",   memberOnly:false },
+  }
+
+  const applyPromo = () => {
+    const code = promoInput.trim().toUpperCase()
+    if(!code){ setPromoMsg({ok:false,text:"Please enter a code."}); return }
+    const promo = PROMOS[code]
+    if(!promo){ setPromoMsg({ok:false,text:"Invalid promo code."}); return }
+    if(promo.memberOnly&&!isMember){
+      setPromoMsg({ok:false,text:"This code is for Honey Badger members only."}); return
+    }
+    setPromoCode(code)
+    setPromoMsg({ok:true,text:promo.label,pct:promo.pct})
+  }
+
+  /* ─── PRICING HELPERS ─── */
+  const memberDisc   = isMember ? 5 : 0
+  const promoDisc    = promoMsg?.ok ? promoMsg.pct : 0
+  const totalDisc    = Math.min(memberDisc + promoDisc, 40)  // cap 40%
+
+  const discPrice = (p) => Math.round(p * (1 - totalDisc/100))
+  const cartSubtotal = cart.reduce((s,i)=>s + discPrice(i.price) * i.qty, 0)
+  const cartQty      = cart.reduce((s,i)=>s+i.qty, 0)
+  const savedTotal   = cart.reduce((s,i)=>s+(i.price - discPrice(i.price))*i.qty, 0)
+
+  /* ─── SQUAD PLAYERS ─── */
+  const PLAYERS = [
+    "BATSHOLENG","MOSWEU","GAOLAPE","PULE","SERETSE","MOGAPI","RADIBE",
+    "KGOSI","MOTLHABI","MOAGI","TSHOSA","NTSHELE","MOSEKI","DITLHARE"
+  ]
+
+  /* ─── CATALOGUE ─── */
   const ADULT_SIZES = ["XS","S","M","L","XL","XXL","XXXL","XXXXL"]
-  const SEASONS     = ["2026/27","2025/26","2024/25","2023/24"]
+  const KIDS_SIZES  = ["2Y","3Y","4Y","5Y","6Y","7Y","8Y","9Y","10Y","11Y","12Y","13Y","14Y","15Y","16Y"]
+  const VARIANTS    = ["Men","Women","Junior"]
+  const QUALITIES   = ["Stadium","Match"]
 
-  const ADULT_PRODUCTS = [
+  const COLLECTIONS = [
     {
-      id:"a1", name:"Home Kit 2026/27", season:"2026/27",
-      tag:"NEW SEASON", tagColor:"#27AE60",
-      price:280, memberPrice:266,
-      emoji:"🟡", desc:"Official Villareal FC home kit. Navy & gold. Sublimation print.",
-      sizes:ADULT_SIZES, inStock:true,
+      id:"home2627", label:"HOME KIT", sublabel:"2026/27 Season", emoji:"🟡",
+      bg:`linear-gradient(135deg,${NAVY} 0%,#1a3060 100%)`,
+      accent:GOLD, textColor:WHITE, new:true,
+      desc:"The official 2026/27 Villareal FC home kit. Navy & gold. Full sublimation.",
+      products:[
+        {id:"hk2627_st",name:"Home Kit 2026/27",quality:"Stadium",price:280,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"NEW",tagC:GREEN},
+        {id:"hk2627_mt",name:"Home Kit 2026/27 Match",quality:"Match",price:380,variants:["Men","Women"],sizes:["S","M","L","XL","XXL"],season:"2026/27",tag:"MATCH",tagC:"#7c3aed"},
+        {id:"hk2627_jr",name:"Home Kit 2026/27 Junior",quality:"Stadium",price:220,variants:["Junior"],sizes:KIDS_SIZES,season:"2026/27",tag:"KIDS",tagC:"#0891b2"},
+      ]
     },
     {
-      id:"a2", name:"Away Kit 2026/27", season:"2026/27",
-      tag:"NEW SEASON", tagColor:"#27AE60",
-      price:260, memberPrice:247,
-      emoji:"⬜", desc:"Official Villareal FC away kit. White & gold trim.",
-      sizes:ADULT_SIZES, inStock:true,
+      id:"away2627", label:"AWAY KIT", sublabel:"2026/27 Season", emoji:"⬜",
+      bg:`linear-gradient(135deg,#1a1a2e 0%,#2a2a4e 100%)`,
+      accent:"#e0e0e0", textColor:WHITE, new:true,
+      desc:"Official away kit. White & gold trim. Premium polyester.",
+      products:[
+        {id:"ak2627_st",name:"Away Kit 2026/27",quality:"Stadium",price:260,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"NEW",tagC:GREEN},
+        {id:"ak2627_jr",name:"Away Kit 2026/27 Junior",quality:"Stadium",price:200,variants:["Junior"],sizes:KIDS_SIZES,season:"2026/27",tag:"KIDS",tagC:"#0891b2"},
+      ]
     },
     {
-      id:"a3", name:"Training Top 2026/27", season:"2026/27",
-      tag:"TRAINING", tagColor:"#0891b2",
-      price:180, memberPrice:171,
-      emoji:"💛", desc:"Lightweight training top. Moisture-wicking fabric.",
-      sizes:ADULT_SIZES, inStock:true,
+      id:"retro",label:"RETRO COLLECTION",sublabel:"Classic Seasons",emoji:"🏆",
+      bg:`linear-gradient(135deg,#2d1b00 0%,#4a2e00 100%)`,
+      accent:GOLD,textColor:WHITE,new:false,
+      desc:"Iconic kits from past seasons. Limited stock.",
+      products:[
+        {id:"ret_2526",name:"Home Kit 2025/26",quality:"Stadium",price:220,variants:VARIANTS,sizes:["S","M","L","XL","XXL"],season:"2025/26",tag:"RETRO",tagC:GOLD2},
+        {id:"ret_2425",name:"Home Kit 2024/25",quality:"Stadium",price:180,variants:VARIANTS,sizes:["M","L","XL"],season:"2024/25",tag:"SALE",tagC:RED},
+        {id:"ret_2324",name:"Home Kit 2023/24",quality:"Stadium",price:160,variants:VARIANTS,sizes:["L","XL"],season:"2023/24",tag:"SALE",tagC:RED},
+      ]
     },
     {
-      id:"a4", name:"Home Kit 2025/26", season:"2025/26",
-      tag:"LAST SEASON", tagColor:NAVY,
-      price:220, memberPrice:209,
-      emoji:"🏆", desc:"2025/26 season home kit. Classic navy stripe.",
-      sizes:["S","M","L","XL","XXL"], inStock:true,
+      id:"training",label:"TRAINING",sublabel:"Match-Day Ready",emoji:"💪",
+      bg:`linear-gradient(135deg,#0a2a0a 0%,#1a4a1a 100%)`,
+      accent:"#4ade80",textColor:WHITE,new:false,
+      desc:"Performance training wear. Moisture-wicking. All sizes.",
+      products:[
+        {id:"tr_top",name:"Training Top 2026/27",quality:"Stadium",price:180,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"TRAINING",tagC:GREEN},
+        {id:"tr_short",name:"Training Shorts",quality:"Stadium",price:120,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"TRAINING",tagC:GREEN},
+        {id:"tr_track",name:"Tracksuit 2026/27",quality:"Stadium",price:320,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"NEW",tagC:GREEN},
+      ]
     },
     {
-      id:"a5", name:"Away Kit 2025/26", season:"2025/26",
-      tag:"LAST SEASON", tagColor:NAVY,
-      price:200, memberPrice:190,
-      emoji:"🌟", desc:"2025/26 away kit. Gold & white colourway.",
-      sizes:["S","M","L","XL"], inStock:true,
+      id:"fanwear",label:"FAN GEAR",sublabel:"Show Your Colours",emoji:"🦡",
+      bg:`linear-gradient(135deg,${NAVY} 0%,#D4A800 100%)`,
+      accent:GOLD,textColor:WHITE,new:false,
+      desc:"Official fan merchandise. Scarves, caps, tees and more.",
+      products:[
+        {id:"fan_tee",name:"Honey Badger Fan Tee",quality:"Stadium",price:120,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"FAN",tagC:GOLD2},
+        {id:"fan_tee_k",name:"Kids Fan Tee",quality:"Stadium",price:90,variants:["Junior"],sizes:KIDS_SIZES,season:"2026/27",tag:"KIDS",tagC:"#0891b2"},
+        {id:"fan_scarf",name:"Yellow Submarine Scarf",quality:"Stadium",price:85,variants:["Men","Women"],sizes:["ONE SIZE"],season:"2026/27",tag:"FAN",tagC:GOLD2},
+        {id:"fan_cap",name:"Honey Badger Cap",quality:"Stadium",price:70,variants:["Men","Women"],sizes:["ONE SIZE"],season:"2026/27",tag:"FAN",tagC:GOLD2},
+        {id:"fan_hoodie",name:"Club Hoodie 2026/27",quality:"Stadium",price:250,variants:VARIANTS,sizes:ADULT_SIZES,season:"2026/27",tag:"NEW",tagC:GREEN},
+      ]
     },
     {
-      id:"a6", name:"Goalkeeper Kit 2026/27", season:"2026/27",
-      tag:"LIMITED", tagColor:"#7c3aed",
-      price:300, memberPrice:285,
-      emoji:"🧤", desc:"Official goalkeeper kit. High-vis yellow.",
-      sizes:["M","L","XL","XXL","XXXL"], inStock:true,
-    },
-    {
-      id:"a7", name:"Home Kit 2024/25", season:"2024/25",
-      tag:"SALE", tagColor:RED,
-      price:160, memberPrice:152, originalPrice:220,
-      emoji:"⚽", desc:"2024/25 classic home kit. Limited stock.",
-      sizes:["M","L","XL"], inStock:true,
-    },
-    {
-      id:"a8", name:"Fan T-Shirt — Honey Badger", season:"2026/27",
-      tag:"FAN GEAR", tagColor:"#D4A800",
-      price:120, memberPrice:114,
-      emoji:"🦡", desc:"Casual fan tee. 100% cotton. Honey Badger crest print.",
-      sizes:ADULT_SIZES, inStock:true,
+      id:"gk",label:"GOALKEEPER",sublabel:"Between the Sticks",emoji:"🧤",
+      bg:`linear-gradient(135deg,#1a0050 0%,#3a0090 100%)`,
+      accent:"#a78bfa",textColor:WHITE,new:true,
+      desc:"Official goalkeeper kit. High-vis. Limited edition.",
+      products:[
+        {id:"gk_kit",name:"GK Kit 2026/27",quality:"Stadium",price:300,variants:["Men"],sizes:["M","L","XL","XXL","XXXL"],season:"2026/27",tag:"LIMITED",tagC:"#7c3aed"},
+      ]
     },
   ]
 
-  const KIDS_GROUPS = [
-    { label:"2–4 yrs",  age:"2-4",   sizes:["2Y","3Y","4Y"],   kitPrice:160, tshirtPrice:90  },
-    { label:"5–6 yrs",  age:"5-6",   sizes:["5Y","6Y"],        kitPrice:170, tshirtPrice:100 },
-    { label:"7–8 yrs",  age:"7-8",   sizes:["7Y","8Y"],        kitPrice:185, tshirtPrice:110 },
-    { label:"9–10 yrs", age:"9-10",  sizes:["9Y","10Y"],       kitPrice:200, tshirtPrice:120 },
-    { label:"11–12 yrs",age:"11-12", sizes:["11Y","12Y"],      kitPrice:215, tshirtPrice:130 },
-    { label:"13–14 yrs",age:"13-14", sizes:["13Y","14Y"],      kitPrice:230, tshirtPrice:140 },
-    { label:"15–16 yrs",age:"15-16", sizes:["15Y","16Y"],      kitPrice:250, tshirtPrice:150 },
-  ]
+  const ALL_PRODUCTS = COLLECTIONS.flatMap(c=>c.products.map(p=>({...p,collection:c.id,collLabel:c.label})))
 
-  const KIDS_PRODUCTS = KIDS_GROUPS.flatMap(g => [
-    {
-      id:`k_${g.age}_kit`, name:`Home Kit ${g.label}`, ageGroup:g.label,
-      tag:g.label, tagColor:NAVY, price:g.kitPrice, memberPrice:Math.round(g.kitPrice*0.95),
-      emoji:"⚽", desc:`Official Villareal FC home kit for ${g.label}. Navy & gold.`,
-      sizes:g.sizes, inStock:true, type:"kit",
-    },
-    {
-      id:`k_${g.age}_tee`, name:`Fan Tee ${g.label}`, ageGroup:g.label,
-      tag:g.label, tagColor:"#0891b2", price:g.tshirtPrice, memberPrice:Math.round(g.tshirtPrice*0.95),
-      emoji:"👕", desc:`Honey Badger fan t-shirt for ${g.label}. Soft cotton.`,
-      sizes:g.sizes, inStock:true, type:"tee",
-    },
-  ])
-
-  const addToCart = (product, size) => {
-    setCart(prev => {
-      const exists = prev.find(i=>i.id===product.id&&i.size===size)
-      if(exists) return prev.map(i=>i.id===product.id&&i.size===size?{...i,qty:i.qty+1}:i)
-      return [...prev, {...product, size, qty:1}]
-    })
-    setSelItem(null)
+  /* ─── ADD TO CART ─── */
+  const handleAddToCart = (product, size, variant, quality, customization={}) => {
+    const item = {
+      ...product, size, variant, quality,
+      customName:customization.name||"",
+      player:customization.player||"",
+      cartId: `${product.id}_${size}_${variant}_${Date.now()}`,
+    }
+    setCart(prev=>[...prev,{...item,qty:1}])
+    setShopView("home")
+    setSelProduct(null)
     setSelSize("")
   }
 
-  const cartTotal    = cart.reduce((s,i)=>s+i.price*i.qty, 0)
-  const cartQty      = cart.reduce((s,i)=>s+i.qty, 0)
-  const [kidsAgeFilter, setKidsAgeFilter] = useState("all")
+  /* ─── SIZE GUIDE ─── */
+  const SIZE_GUIDE = [
+    {s:"XS",chest:"80–84",waist:"70–74",hip:"86–90"},
+    {s:"S", chest:"88–92",waist:"78–82",hip:"94–98"},
+    {s:"M", chest:"96–100",waist:"86–90",hip:"102–106"},
+    {s:"L", chest:"104–108",waist:"94–98",hip:"110–114"},
+    {s:"XL",chest:"112–116",waist:"102–106",hip:"118–122"},
+    {s:"XXL",chest:"120–124",waist:"110–114",hip:"126–130"},
+    {s:"XXXL",chest:"128–132",waist:"118–122",hip:"134–138"},
+    {s:"XXXXL",chest:"136–140",waist:"126–130",hip:"142–146"},
+  ]
+  const [showSizeGuide, setShowSizeGuide] = useState(false)
 
-  /* ── PRODUCT CARD ─────────────────────────────────────────────── */
-  const ProductCard = ({p}) => (
-    <div onClick={()=>{setSelItem(p);setSelSize("");setSelSeason(p.season||"")}}
-      style={{borderRadius:14,overflow:"hidden",background:WHITE,
-        boxShadow:"0 2px 10px rgba(0,0,0,0.08)",
-        border:"1.5px solid #eee",cursor:"pointer",
-        WebkitTapHighlightColor:"transparent",
-        transition:"box-shadow 0.15s"}}>
-      {/* Image area */}
-      <div style={{height:130,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
-        position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <div style={{opacity:0.08,position:"absolute"}}><Logo size={90}/></div>
-        <div style={{fontSize:"clamp(44px,12vw,56px)",zIndex:1}}>{p.emoji}</div>
-        {/* Tag */}
-        <div style={{position:"absolute",top:8,left:8,
-          background:p.tagColor,color:WHITE,
-          fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
-          fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
-          {p.tag}
-        </div>
-        {/* Member badge */}
-        <div style={{position:"absolute",top:8,right:8,
-          background:GOLD,color:NAVY,
-          fontSize:8,fontWeight:900,padding:"2px 6px",borderRadius:4,
-          fontFamily:"'Barlow Condensed',sans-serif"}}>
-          🦡 -5%
-        </div>
-        {p.originalPrice&&(
-          <div style={{position:"absolute",bottom:8,right:8,
-            background:RED,color:WHITE,
-            fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
-            fontFamily:"'Barlow Condensed',sans-serif"}}>
-            SALE
+  /* ─── HERO BANNERS for auto-scroll ─── */
+  const [heroBanner, setHeroBanner] = useState(0)
+  const BANNERS = [
+    {title:"2026/27 KITS",sub:"Home & Away now available",emoji:"⚽",bg:`linear-gradient(135deg,${NAVY},#1a3060)`,accent:GOLD,cta:"SHOP KITS →",col:"home2627"},
+    {title:"THE HONEY BADGER",sub:"Fan gear — show your colours",emoji:"🦡",bg:`linear-gradient(135deg,#D4A800,#0D1B3E)`,accent:WHITE,cta:"SHOP FAN GEAR →",col:"fanwear"},
+    {title:"RETRO COLLECTION",sub:"Iconic kits from past seasons",emoji:"🏆",bg:`linear-gradient(135deg,#2d1b00,#4a2e00)`,accent:GOLD,cta:"SHOP RETRO →",col:"retro"},
+  ]
+  useEffect(()=>{
+    const id = setInterval(()=>setHeroBanner(b=>(b+1)%BANNERS.length), 4000)
+    return ()=>clearInterval(id)
+  },[])
+
+  /* ══════════════════════════════════════════════════════════
+     VIEWS
+  ══════════════════════════════════════════════════════════ */
+
+  /* ── STORE HOME ── */
+  const HomeView = () => (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
+
+      {/* ── HERO BANNER (auto-rotating) ── */}
+      <div style={{position:"relative",overflow:"hidden",flexShrink:0}}>
+        <div style={{background:BANNERS[heroBanner].bg,
+          padding:"clamp(24px,6vw,36px) clamp(16px,4vw,20px) clamp(20px,5vw,28px)",
+          transition:"background 0.6s",position:"relative",overflow:"hidden",
+          minHeight:"clamp(160px,40vw,200px)",display:"flex",flexDirection:"column",
+          justifyContent:"center"}}>
+          <div style={{position:"absolute",right:-20,top:-20,opacity:0.06}}><Logo size={200}/></div>
+          <div style={{fontSize:"clamp(36px,10vw,52px)",marginBottom:8}}>
+            {BANNERS[heroBanner].emoji}
           </div>
-        )}
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:"clamp(22px,7vw,32px)",color:BANNERS[heroBanner].accent,
+            lineHeight:1,letterSpacing:"0.04em"}}>
+            {BANNERS[heroBanner].title}
+          </div>
+          <div style={{fontSize:"clamp(11px,3vw,13px)",color:"rgba(255,255,255,0.7)",
+            marginTop:4,marginBottom:14}}>{BANNERS[heroBanner].sub}</div>
+          <button onClick={()=>{setActiveCol(BANNERS[heroBanner].col);setShopView("collection")}}
+            style={{alignSelf:"flex-start",background:BANNERS[heroBanner].accent,
+              border:"none",borderRadius:8,padding:"8px 18px",minHeight:38,
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:"clamp(11px,3vw,13px)",
+              color:BANNERS[heroBanner].accent===WHITE?NAVY:NAVY,
+              cursor:"pointer",WebkitTapHighlightColor:"transparent",
+              letterSpacing:"0.06em"}}>
+            {BANNERS[heroBanner].cta}
+          </button>
+        </div>
+        {/* Dots */}
+        <div style={{position:"absolute",bottom:8,left:"50%",transform:"translateX(-50%)",
+          display:"flex",gap:5}}>
+          {BANNERS.map((_,i)=>(
+            <div key={i} onClick={()=>setHeroBanner(i)}
+              style={{width:i===heroBanner?20:6,height:6,borderRadius:3,
+                background:i===heroBanner?"rgba(255,255,255,0.9)":"rgba(255,255,255,0.35)",
+                cursor:"pointer",transition:"width 0.3s"}}/>
+          ))}
+        </div>
       </div>
-      {/* Info */}
-      <div style={{padding:"10px 10px 12px"}}>
+
+      {/* ── MEMBER BANNER ── */}
+      {!isMember&&(
+        <div onClick={openMembership}
+          style={{margin:"12px 12px 0",background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
+            borderRadius:12,padding:"12px 16px",
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+            cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:14,color:NAVY}}>🦡 JOIN HONEY BADGER — SAVE 5% ON ALL ORDERS</div>
+            <div style={{fontSize:11,color:"rgba(13,27,62,0.7)",marginTop:2}}>
+              Plus exclusive promo codes & early access
+            </div>
+          </div>
+          <div style={{background:NAVY,color:GOLD,fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:900,fontSize:11,padding:"5px 10px",borderRadius:6,flexShrink:0}}>
+            JOIN →
+          </div>
+        </div>
+      )}
+      {isMember&&(
+        <div style={{margin:"12px 12px 0",background:`${GREEN}18`,
+          border:`1px solid ${GREEN}44`,borderRadius:12,padding:"10px 14px",
+          display:"flex",alignItems:"center",gap:8}}>
+          <span style={{fontSize:16}}>🦡</span>
+          <div style={{fontSize:12,color:GREEN,fontWeight:700}}>
+            Honey Badger member — you save 5% on all purchases!
+          </div>
+        </div>
+      )}
+
+      {/* ── COLLECTIONS GRID ── */}
+      <div style={{padding:"16px 12px 8px"}}>
         <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-          fontSize:"clamp(12px,3.5vw,14px)",color:NAVY,lineHeight:1.2,marginBottom:6,
-          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-          {p.name}
+          fontSize:"clamp(16px,5vw,20px)",color:NAVY,marginBottom:12,
+          letterSpacing:"0.04em"}}>COLLECTIONS</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:4}}>
+          {COLLECTIONS.map((col,i)=>(
+            <div key={col.id}
+              onClick={()=>{setActiveCol(col.id);setShopView("collection")}}
+              style={{
+                borderRadius:14,overflow:"hidden",cursor:"pointer",
+                background:col.bg,minHeight:"clamp(100px,28vw,130px)",
+                display:"flex",flexDirection:"column",justifyContent:"flex-end",
+                padding:"10px 12px",position:"relative",
+                boxShadow:"0 4px 14px rgba(0,0,0,0.15)",
+                WebkitTapHighlightColor:"transparent",
+                gridColumn: i===0?"1/3":undefined,  // first card full width
+              }}>
+              <div style={{position:"absolute",top:-10,right:-10,opacity:0.08,fontSize:80,
+                lineHeight:1}}>{col.emoji}</div>
+              {col.new&&(
+                <div style={{position:"absolute",top:10,right:10,
+                  background:GREEN,color:WHITE,fontSize:9,fontWeight:900,
+                  padding:"2px 7px",borderRadius:4,
+                  fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
+                  NEW
+                </div>
+              )}
+              <div style={{fontSize:"clamp(20px,5vw,26px)",marginBottom:4}}>{col.emoji}</div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:"clamp(14px,4vw,18px)",color:col.accent||WHITE,lineHeight:1}}>
+                {col.label}
+              </div>
+              <div style={{fontSize:"clamp(9px,2.5vw,11px)",color:"rgba(255,255,255,0.6)",
+                marginTop:2}}>{col.sublabel}</div>
+            </div>
+          ))}
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:6}}>
-          {p.originalPrice&&(
-            <span style={{fontSize:11,color:MGRAY,textDecoration:"line-through"}}>
-              P{p.originalPrice}
-            </span>
-          )}
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>
-            P{p.price}
-          </span>
-        </div>
-        <div style={{fontSize:10,color:GOLD2,fontWeight:700,marginTop:2}}>
-          Members: P{p.memberPrice}
+      </div>
+
+      {/* ── BEST SELLERS ── */}
+      <div style={{padding:"4px 12px 20px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:"clamp(16px,5vw,20px)",color:NAVY,marginBottom:12,
+          letterSpacing:"0.04em"}}>BEST SELLERS</div>
+        <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,
+          WebkitOverflowScrolling:"touch"}}>
+          {ALL_PRODUCTS.filter((_,i)=>[0,3,6,10,12].includes(i)).map(p=>(
+            <div key={p.id}
+              onClick={()=>{setSelProduct(p);setSelSize("");setSelVariant("Men");setSelQuality(p.quality||"Stadium");setShopView("product")}}
+              style={{flexShrink:0,width:"clamp(130px,36vw,160px)",borderRadius:14,
+                overflow:"hidden",background:WHITE,
+                boxShadow:"0 2px 10px rgba(0,0,0,0.08)",border:"1.5px solid #eee",
+                cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+              <div style={{height:100,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+                position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <div style={{opacity:0.07,position:"absolute"}}><Logo size={80}/></div>
+                <span style={{fontSize:44,zIndex:1}}>{COLLECTIONS.find(c=>c.id===p.collection)?.emoji||"⚽"}</span>
+                <div style={{position:"absolute",top:7,left:7,
+                  background:p.tagC,color:WHITE,fontSize:8,fontWeight:900,
+                  padding:"2px 6px",borderRadius:3,
+                  fontFamily:"'Barlow Condensed',sans-serif"}}>{p.tag}</div>
+              </div>
+              <div style={{padding:"8px 10px 10px"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:"clamp(11px,3vw,13px)",color:NAVY,lineHeight:1.2,marginBottom:4,
+                  overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>
+                  P{discPrice(p.price)}
+                  {totalDisc>0&&<span style={{fontSize:10,color:MGRAY,textDecoration:"line-through",marginLeft:4}}>P{p.price}</span>}
+                </div>
+                {isMember&&<div style={{fontSize:9,color:GREEN,fontWeight:700,marginTop:1}}>🦡 Member price</div>}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
   )
 
-  /* ── PRODUCT DETAIL MODAL ─────────────────────────────────────── */
-  const ProductModal = () => {
-    if(!selItem) return null
-    const p = selItem
+  /* ── COLLECTION VIEW ── */
+  const CollectionView = () => {
+    const col = COLLECTIONS.find(c=>c.id===activeCol)
+    if(!col) return null
     return (
-      <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",
-        zIndex:200,display:"flex",alignItems:"flex-end"}}>
-        <div style={{background:WHITE,width:"100%",borderRadius:"22px 22px 0 0",
-          maxHeight:"88%",overflow:"hidden",display:"flex",flexDirection:"column"}}>
-          {/* Handle */}
-          <div style={{padding:"12px 16px 0",flexShrink:0}}>
-            <div style={{width:40,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 12px"}}/>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        {/* Header */}
+        <div style={{background:col.bg,padding:"16px 14px 14px",flexShrink:0}}>
+          <button onClick={()=>setShopView("home")}
+            style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,
+              padding:"6px 12px",color:WHITE,fontSize:13,cursor:"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,marginBottom:10,
+              WebkitTapHighlightColor:"transparent"}}>
+            ← BACK
+          </button>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <span style={{fontSize:32}}>{col.emoji}</span>
+            <div>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:20,color:NAVY}}>{p.name}</div>
-              <button onClick={()=>setSelItem(null)}
-                style={{background:"#f0f0f0",border:"none",borderRadius:"50%",
-                  width:30,height:30,cursor:"pointer",fontSize:14,color:MGRAY}}>✕</button>
+                fontSize:22,color:col.accent||WHITE,lineHeight:1}}>{col.label}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",marginTop:2}}>{col.sublabel}</div>
             </div>
           </div>
-          <div style={{flex:1,overflowY:"auto",padding:"12px 16px 24px",
-            WebkitOverflowScrolling:"touch"}}>
-            {/* Hero */}
-            <div style={{height:160,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
-              borderRadius:14,display:"flex",alignItems:"center",justifyContent:"center",
-              marginBottom:16,position:"relative",overflow:"hidden"}}>
-              <div style={{opacity:0.08,position:"absolute"}}><Logo size={120}/></div>
-              <div style={{fontSize:72}}>{p.emoji}</div>
-              <div style={{position:"absolute",top:10,left:10,
-                background:p.tagColor,color:WHITE,fontSize:10,fontWeight:900,
+          <div style={{fontSize:12,color:"rgba(255,255,255,0.65)",marginTop:8,lineHeight:1.5}}>
+            {col.desc}
+          </div>
+        </div>
+        {/* Products */}
+        <div style={{flex:1,overflowY:"auto",padding:"12px",
+          background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+            {col.products.map(p=>(
+              <div key={p.id}
+                onClick={()=>{setSelProduct(p);setSelSize("");setSelVariant(p.variants[0]);setSelQuality(p.quality||"Stadium");setShopView("product")}}
+                style={{borderRadius:14,overflow:"hidden",background:WHITE,
+                  boxShadow:"0 2px 10px rgba(0,0,0,0.08)",border:"1.5px solid #eee",
+                  cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
+                <div style={{height:110,background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+                  position:"relative",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <div style={{opacity:0.07,position:"absolute"}}><Logo size={80}/></div>
+                  <span style={{fontSize:50,zIndex:1}}>{col.emoji}</span>
+                  <div style={{position:"absolute",top:8,left:8,
+                    background:p.tagC,color:WHITE,fontSize:8,fontWeight:900,
+                    padding:"2px 6px",borderRadius:3,
+                    fontFamily:"'Barlow Condensed',sans-serif"}}>{p.tag}</div>
+                  {(totalDisc>0)&&(
+                    <div style={{position:"absolute",bottom:8,right:8,
+                      background:RED,color:WHITE,fontSize:8,fontWeight:900,
+                      padding:"2px 6px",borderRadius:3,
+                      fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      -{totalDisc}%
+                    </div>
+                  )}
+                </div>
+                <div style={{padding:"10px 10px 12px"}}>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                    fontSize:"clamp(11px,3vw,13px)",color:NAVY,lineHeight:1.2,marginBottom:6,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                    fontSize:"clamp(14px,4vw,17px)",color:NAVY}}>
+                    P{discPrice(p.price)}
+                  </div>
+                  {p.price!==discPrice(p.price)&&(
+                    <div style={{fontSize:10,color:MGRAY,textDecoration:"line-through"}}>P{p.price}</div>
+                  )}
+                  {isMember&&<div style={{fontSize:9,color:GREEN,fontWeight:700,marginTop:2}}>🦡 Member price applied</div>}
+                  <div style={{fontSize:10,color:MGRAY,marginTop:2}}>{p.quality} · {p.variants.join(" / ")}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  /* ── PRODUCT DETAIL ── */
+  const ProductView = () => {
+    if(!selProduct) return null
+    const p = selProduct
+    const col = COLLECTIONS.find(c=>c.id===p.collection)
+    const finalPrice = discPrice(p.price)
+    const [showGuide, setShowGuide] = useState(false)
+
+    return (
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
+        {/* Header */}
+        <div style={{background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+          padding:"14px 16px",flexShrink:0,
+          display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={()=>setShopView(activeCol?"collection":"home")}
+            style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,
+              padding:"6px 12px",color:WHITE,fontSize:13,cursor:"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,flexShrink:0,
+              WebkitTapHighlightColor:"transparent"}}>← BACK</button>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:16,color:WHITE,overflow:"hidden",textOverflow:"ellipsis",
+            whiteSpace:"nowrap"}}>{p.name}</div>
+        </div>
+
+        <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
+          {/* Product hero */}
+          <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
+            height:"clamp(160px,40vw,200px)",position:"relative",
+            display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{opacity:0.06,position:"absolute"}}><Logo size={160}/></div>
+            <span style={{fontSize:"clamp(60px,18vw,90px)",zIndex:1}}>{col?.emoji||"⚽"}</span>
+            <div style={{position:"absolute",top:12,left:12,
+              background:p.tagC,color:WHITE,fontSize:10,fontWeight:900,
+              padding:"3px 9px",borderRadius:4,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>{p.tag}</div>
+            {totalDisc>0&&(
+              <div style={{position:"absolute",top:12,right:12,
+                background:RED,color:WHITE,fontSize:10,fontWeight:900,
                 padding:"3px 9px",borderRadius:4,
-                fontFamily:"'Barlow Condensed',sans-serif"}}>{p.tag}</div>
-            </div>
+                fontFamily:"'Barlow Condensed',sans-serif"}}>-{totalDisc}% OFF</div>
+            )}
+          </div>
 
-            {/* Price */}
+          <div style={{padding:"16px 14px"}}>
+            {/* Name & price */}
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:"clamp(18px,5vw,22px)",color:NAVY,lineHeight:1,marginBottom:8}}>
+              {p.name}
+            </div>
             <div style={{display:"flex",alignItems:"baseline",gap:10,marginBottom:4}}>
-              {p.originalPrice&&(
-                <span style={{fontSize:14,color:MGRAY,textDecoration:"line-through"}}>P{p.originalPrice}</span>
-              )}
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:30,color:NAVY}}>P{p.price}</span>
+                fontSize:"clamp(26px,8vw,34px)",color:NAVY}}>P{finalPrice}</span>
+              {p.price!==finalPrice&&(
+                <span style={{fontSize:14,color:MGRAY,textDecoration:"line-through"}}>P{p.price}</span>
+              )}
             </div>
-            <div style={{background:`${GOLD}22`,border:`1px solid ${GOLD}`,
-              borderRadius:8,padding:"6px 12px",marginBottom:14,
-              display:"inline-block",fontSize:12,color:GOLD2,fontWeight:700}}>
-              🦡 Honey Badger members pay P{p.memberPrice}
+            {/* Discount badges */}
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:14}}>
+              {isMember&&(
+                <div style={{background:`${GREEN}18`,border:`1px solid ${GREEN}44`,
+                  borderRadius:6,padding:"3px 9px",fontSize:11,color:GREEN,fontWeight:700}}>
+                  🦡 Member -5%
+                </div>
+              )}
+              {promoMsg?.ok&&(
+                <div style={{background:`${GOLD}22`,border:`1px solid ${GOLD}`,
+                  borderRadius:6,padding:"3px 9px",fontSize:11,color:GOLD2,fontWeight:700}}>
+                  🎟 Promo -{promoDisc}%
+                </div>
+              )}
+              {totalDisc>0&&(
+                <div style={{background:`${RED}18`,border:`1px solid ${RED}44`,
+                  borderRadius:6,padding:"3px 9px",fontSize:11,color:RED,fontWeight:700}}>
+                  Save P{p.price-finalPrice}
+                </div>
+              )}
             </div>
 
-            <div style={{fontSize:13,color:MGRAY,lineHeight:1.6,marginBottom:16}}>
-              {p.desc}
-            </div>
-
-            {/* Season selector (adults) */}
-            {p.season&&(
+            {/* Quality selector */}
+            {QUALITIES.length>0&&p.variants[0]!=="Junior"&&(
               <>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>SEASON</div>
-                <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
-                  {SEASONS.map(s=>(
-                    <button key={s} onClick={()=>setSelSeason(s)} style={{
-                      padding:"6px 14px",borderRadius:8,minHeight:36,
-                      border:`1.5px solid ${selSeason===s?NAVY:"#e5e7eb"}`,
-                      background:selSeason===s?NAVY:WHITE,
-                      color:selSeason===s?WHITE:NAVY,
-                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                      fontSize:12,cursor:"pointer",
-                      WebkitTapHighlightColor:"transparent",
-                    }}>{s}</button>
+                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
+                  QUALITY
+                </div>
+                <div style={{display:"flex",gap:8,marginBottom:14}}>
+                  {QUALITIES.map(q=>(
+                    <button key={q} onClick={()=>setSelQuality(q)} style={{
+                      flex:1,padding:"9px 0",borderRadius:10,minHeight:42,
+                      border:`2px solid ${selQuality===q?NAVY:"#e5e7eb"}`,
+                      background:selQuality===q?NAVY:WHITE,
+                      color:selQuality===q?WHITE:NAVY,
+                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:13,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                    }}>
+                      {q}{q==="Match"?" +P100":""}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Variant selector */}
+            {p.variants.length>1&&(
+              <>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>VARIANT</div>
+                <div style={{display:"flex",gap:8,marginBottom:14}}>
+                  {p.variants.map(v=>(
+                    <button key={v} onClick={()=>setSelVariant(v)} style={{
+                      flex:1,padding:"9px 0",borderRadius:10,minHeight:42,
+                      border:`2px solid ${selVariant===v?NAVY:"#e5e7eb"}`,
+                      background:selVariant===v?NAVY:WHITE,
+                      color:selVariant===v?WHITE:NAVY,
+                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:13,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                    }}>{v}</button>
                   ))}
                 </div>
               </>
             )}
 
             {/* Size selector */}
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-              SELECT SIZE
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+              marginBottom:8}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:11,color:MGRAY,letterSpacing:"0.08em"}}>SIZE</div>
+              <button onClick={()=>setShowGuide(s=>!s)}
+                style={{background:"none",border:"none",cursor:"pointer",
+                  fontSize:11,color:NAVY,fontWeight:700,textDecoration:"underline"}}>
+                Size Guide
+              </button>
             </div>
-            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:20}}>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:12}}>
               {p.sizes.map(sz=>(
                 <button key={sz} onClick={()=>setSelSize(sz)} style={{
-                  width:"clamp(42px,12vw,52px)",height:"clamp(42px,12vw,52px)",
-                  borderRadius:10,
+                  minWidth:"clamp(38px,10vw,48px)",height:"clamp(38px,10vw,48px)",
+                  borderRadius:9,
                   border:`2px solid ${selSize===sz?NAVY:"#e5e7eb"}`,
                   background:selSize===sz?NAVY:WHITE,
                   color:selSize===sz?WHITE:NAVY,
                   fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:13,cursor:"pointer",
+                  fontSize:"clamp(10px,3vw,13px)",cursor:"pointer",padding:"0 6px",
                   WebkitTapHighlightColor:"transparent",
                 }}>{sz}</button>
               ))}
             </div>
 
             {/* Size guide */}
-            {p.sizes.includes("XS")&&(
-              <div style={{background:LGRAY,borderRadius:10,padding:"10px 12px",marginBottom:16}}>
+            {showGuide&&(
+              <div style={{background:LGRAY,borderRadius:10,padding:"10px",
+                marginBottom:12,overflowX:"auto"}}>
                 <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                  fontSize:11,color:NAVY,marginBottom:6}}>SIZE GUIDE (chest cm)</div>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:4}}>
-                  {[["XS","80–84"],["S","88–92"],["M","96–100"],["L","104–108"],
-                    ["XL","112–116"],["XXL","120–124"],["XXXL","128–132"],["XXXXL","136–140"]].map(([s,m])=>(
-                    <div key={s} style={{textAlign:"center",padding:"4px",
-                      background:selSize===s?`${GOLD}33`:WHITE,
-                      borderRadius:6,border:`1px solid ${selSize===s?GOLD:"#eee"}`}}>
-                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                        fontSize:12,color:NAVY}}>{s}</div>
-                      <div style={{fontSize:9,color:MGRAY}}>{m}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Add to cart */}
-            <button
-              onClick={()=>{ if(selSize) addToCart(p, selSize) }}
-              disabled={!selSize}
-              style={{width:"100%",padding:"15px",minHeight:52,
-                background:selSize?NAVY:"#e5e7eb",border:"none",borderRadius:12,
-                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:16,
-                color:selSize?WHITE:"#aaa",cursor:selSize?"pointer":"not-allowed",
-                WebkitTapHighlightColor:"transparent"}}>
-              {selSize?`ADD TO CART — P${p.price}`:"SELECT A SIZE FIRST"}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ── CART MODAL ───────────────────────────────────────────────── */
-  const CartModal = () => (
-    <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,0.75)",
-      zIndex:200,display:"flex",alignItems:"flex-end"}}>
-      <div style={{background:WHITE,width:"100%",borderRadius:"22px 22px 0 0",
-        maxHeight:"88%",display:"flex",flexDirection:"column",overflow:"hidden"}}>
-        <div style={{padding:"14px 16px 10px",borderBottom:"1px solid #eee",flexShrink:0}}>
-          <div style={{width:40,height:4,background:"#ddd",borderRadius:2,margin:"0 auto 12px"}}/>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:20,color:NAVY}}>YOUR CART ({cartQty})</div>
-            <button onClick={()=>setShowCart(false)}
-              style={{background:"#f0f0f0",border:"none",borderRadius:"50%",
-                width:30,height:30,cursor:"pointer",fontSize:14,color:MGRAY}}>✕</button>
-          </div>
-        </div>
-        <div style={{flex:1,overflowY:"auto",padding:"12px 16px",
-          WebkitOverflowScrolling:"touch"}}>
-          {cart.length===0?(
-            <div style={{textAlign:"center",padding:"40px 0"}}>
-              <div style={{fontSize:40,marginBottom:10}}>🛒</div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:18,color:NAVY}}>YOUR CART IS EMPTY</div>
-              <div style={{fontSize:13,color:MGRAY,marginTop:4}}>Add items to get started</div>
-            </div>
-          ):(
-            cart.map((item,i)=>(
-              <div key={i} style={{display:"flex",alignItems:"center",gap:12,
-                padding:"12px 0",borderBottom:"1px solid #f0f0f0"}}>
-                <div style={{width:50,height:50,borderRadius:10,
-                  background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:24,flexShrink:0}}>{item.emoji}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                    fontSize:14,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
-                    whiteSpace:"nowrap"}}>{item.name}</div>
-                  <div style={{fontSize:12,color:MGRAY}}>Size: {item.size} · Qty: {item.qty}</div>
-                </div>
-                <div style={{textAlign:"right",flexShrink:0}}>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                    fontSize:16,color:NAVY}}>P{item.price*item.qty}</div>
-                  <button onClick={()=>setCart(prev=>prev.filter((_,j)=>j!==i))}
-                    style={{fontSize:11,color:RED,fontWeight:700,background:"none",
-                      border:"none",cursor:"pointer",padding:0}}>Remove</button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        {cart.length>0&&(
-          <div style={{padding:"14px 16px",borderTop:"1px solid #eee",flexShrink:0}}>
-            <div style={{display:"flex",justifyContent:"space-between",
-              alignItems:"center",marginBottom:12}}>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:16,color:NAVY}}>TOTAL</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:24,color:NAVY}}>P{cartTotal}</span>
-            </div>
-            <button onClick={goToAuth}
-              style={{width:"100%",padding:"14px",background:GOLD,border:"none",
-                borderRadius:12,fontFamily:"'Barlow Condensed',sans-serif",
-                fontWeight:900,fontSize:16,color:NAVY,cursor:"pointer",minHeight:50}}>
-              CHECKOUT →
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-
-  /* ── SHOP TAB ─────────────────────────────────────────────────── */
-  const ShopTab = () => {
-    const [adultSeason, setAdultSeason] = useState("all")
-    const filteredAdults = adultSeason==="all"
-      ? ADULT_PRODUCTS
-      : ADULT_PRODUCTS.filter(p=>p.season===adultSeason)
-    const filteredKids = kidsAgeFilter==="all"
-      ? KIDS_PRODUCTS
-      : KIDS_PRODUCTS.filter(p=>p.ageGroup===kidsAgeFilter)
-
-    return (
-      <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch"}}>
-
-        {/* Hero banner */}
-        <div style={{background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 100%)`,
-          padding:"clamp(20px,5vw,28px) clamp(16px,4vw,20px)",
-          position:"relative",overflow:"hidden",marginBottom:0}}>
-          <div style={{opacity:0.06,position:"absolute",right:-20,top:-20}}><Logo size={200}/></div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(11px,3vw,13px)",color:GOLD,letterSpacing:"0.12em",marginBottom:6}}>
-            OFFICIAL VILLAREAL FC
-          </div>
-          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(28px,8vw,36px)",color:WHITE,lineHeight:1,marginBottom:8}}>
-            THE OFFICIAL<br/>STORE 🦡
-          </div>
-          <div style={{fontSize:12,color:"rgba(255,255,255,0.6)",marginBottom:16}}>
-            Kits · Training · Fan Gear · Kids
-          </div>
-          {/* Section switcher */}
-          <div style={{display:"flex",gap:8}}>
-            {["adults","kids"].map(s=>(
-              <button key={s} onClick={()=>setShopSec(s)} style={{
-                padding:"8px 20px",borderRadius:20,minHeight:38,
-                background:shopSec===s?GOLD:"rgba(255,255,255,0.12)",
-                border:"none",cursor:"pointer",
-                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(12px,3.5vw,14px)",
-                color:shopSec===s?NAVY:WHITE,
-                WebkitTapHighlightColor:"transparent",
-              }}>
-                {s==="adults"?"👕 ADULTS":"👶 KIDS"}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── ADULTS ── */}
-        {shopSec==="adults"&&(
-          <div style={{padding:"14px 12px 20px"}}>
-            {/* Season filter */}
-            <div style={{display:"flex",gap:8,overflowX:"auto",marginBottom:16,
-              paddingBottom:4}}>
-              {["all",...SEASONS].map(s=>(
-                <button key={s} onClick={()=>setAdultSeason(s)} style={{
-                  padding:"6px 14px",borderRadius:20,whiteSpace:"nowrap",minHeight:34,
-                  border:`1.5px solid ${adultSeason===s?NAVY:"#e5e7eb"}`,
-                  background:adultSeason===s?NAVY:WHITE,
-                  color:adultSeason===s?WHITE:MGRAY,
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                  fontSize:12,cursor:"pointer",flexShrink:0,
-                  WebkitTapHighlightColor:"transparent",
-                }}>
-                  {s==="all"?"ALL SEASONS":s}
-                </button>
-              ))}
-            </div>
-
-            {/* New arrivals hero */}
-            <div style={{borderRadius:14,overflow:"hidden",marginBottom:14,
-              background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
-              padding:"18px 16px",display:"flex",justifyContent:"space-between",
-              alignItems:"center"}}>
-              <div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:11,color:NAVY,letterSpacing:"0.1em",marginBottom:4}}>
-                  NEW 2026/27 SEASON
-                </div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:22,color:NAVY,lineHeight:1}}>
-                  HOME KIT<br/>NOW AVAILABLE
-                </div>
-                <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:4}}>
-                  Members save 5% · Sizes XS–XXXXL
-                </div>
-              </div>
-              <div style={{fontSize:56,flexShrink:0}}>⚽</div>
-            </div>
-
-            {/* Product grid */}
-            <div style={{display:"grid",
-              gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:12}}>
-              {filteredAdults.map(p=><ProductCard key={p.id} p={p}/>)}
-            </div>
-          </div>
-        )}
-
-        {/* ── KIDS ── */}
-        {shopSec==="kids"&&(
-          <div style={{padding:"14px 12px 20px"}}>
-            {/* Kids hero */}
-            <div style={{borderRadius:14,overflow:"hidden",marginBottom:14,
-              background:`linear-gradient(135deg,#0891b2,#0e7490)`,
-              padding:"18px 16px",display:"flex",justifyContent:"space-between",
-              alignItems:"center"}}>
-              <div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:11,color:"rgba(255,255,255,0.7)",letterSpacing:"0.1em",marginBottom:4}}>
-                  VILLAREAL FC
-                </div>
-                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:22,color:WHITE,lineHeight:1}}>
-                  KIDS<br/>APPAREL
-                </div>
-                <div style={{fontSize:12,color:"rgba(255,255,255,0.7)",marginTop:4}}>
-                  Ages 2–16 · Kits & Fan Tees
-                </div>
-              </div>
-              <div style={{fontSize:52,flexShrink:0}}>👶</div>
-            </div>
-
-            {/* Age group filter */}
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.08em",marginBottom:8}}>
-              AGE GROUP
-            </div>
-            <div style={{display:"flex",gap:6,overflowX:"auto",marginBottom:16,paddingBottom:4}}>
-              {["all",...KIDS_GROUPS.map(g=>g.label)].map(a=>(
-                <button key={a} onClick={()=>setKidsAgeFilter(a==="all"?"all":a)} style={{
-                  padding:"6px 12px",borderRadius:20,whiteSpace:"nowrap",minHeight:34,
-                  border:`1.5px solid ${kidsAgeFilter===(a==="all"?"all":a)?NAVY:"#e5e7eb"}`,
-                  background:kidsAgeFilter===(a==="all"?"all":a)?NAVY:WHITE,
-                  color:kidsAgeFilter===(a==="all"?"all":a)?WHITE:MGRAY,
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-                  fontSize:11,cursor:"pointer",flexShrink:0,
-                  WebkitTapHighlightColor:"transparent",
-                }}>
-                  {a==="all"?"ALL AGES":a}
-                </button>
-              ))}
-            </div>
-
-            {/* Price guide */}
-            <div style={{background:LGRAY,borderRadius:10,padding:"12px 14px",
-              marginBottom:14,border:"1px solid #e5e7eb"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:11,color:NAVY,marginBottom:8}}>KIDS PRICING GUIDE</div>
-              <div style={{overflowX:"auto"}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:300}}>
+                  fontSize:11,color:NAVY,marginBottom:8}}>SIZE GUIDE (cm)</div>
+                <table style={{borderCollapse:"collapse",fontSize:10,minWidth:280,width:"100%"}}>
                   <thead>
                     <tr style={{background:NAVY}}>
-                      {["Age","Kit","Fan Tee","Member Kit"].map(h=>(
-                        <th key={h} style={{padding:"5px 8px",color:WHITE,
+                      {["SIZE","CHEST","WAIST","HIP"].map(h=>(
+                        <th key={h} style={{padding:"4px 8px",color:WHITE,
                           fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                          fontSize:10,textAlign:"left",letterSpacing:"0.04em"}}>{h}</th>
+                          fontSize:9,textAlign:"left"}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {KIDS_GROUPS.map((g,i)=>(
-                      <tr key={g.age} style={{background:i%2===0?WHITE:LGRAY}}>
-                        <td style={{padding:"5px 8px",fontWeight:700,color:NAVY}}>{g.label}</td>
-                        <td style={{padding:"5px 8px",color:NAVY}}>P{g.kitPrice}</td>
-                        <td style={{padding:"5px 8px",color:NAVY}}>P{g.tshirtPrice}</td>
-                        <td style={{padding:"5px 8px",color:GOLD2,fontWeight:700}}>
-                          P{Math.round(g.kitPrice*0.95)}
-                        </td>
+                    {SIZE_GUIDE.map((r,i)=>(
+                      <tr key={r.s} style={{background:selSize===r.s?`${GOLD}33`:i%2===0?WHITE:LGRAY}}>
+                        <td style={{padding:"4px 8px",fontWeight:800,color:NAVY}}>{r.s}</td>
+                        <td style={{padding:"4px 8px",color:MGRAY}}>{r.chest}</td>
+                        <td style={{padding:"4px 8px",color:MGRAY}}>{r.waist}</td>
+                        <td style={{padding:"4px 8px",color:MGRAY}}>{r.hip}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+            )}
+
+            {/* Customization */}
+            {p.tag!=="KIDS"&&p.tag!=="FAN"&&(
+              <div style={{background:LGRAY,borderRadius:12,padding:"12px 14px",marginBottom:14}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:10}}>
+                  CUSTOMIZE THIS ITEM <span style={{color:MGRAY,fontWeight:600}}>(optional)</span>
+                </div>
+                <div style={{display:"flex",gap:6,marginBottom:10}}>
+                  {["player","name"].map(m=>(
+                    <button key={m} onClick={()=>setCustomMode(m)} style={{
+                      flex:1,padding:"8px 0",borderRadius:8,minHeight:38,
+                      background:customMode===m?NAVY:"rgba(255,255,255,0.8)",
+                      border:`1.5px solid ${customMode===m?NAVY:"#ddd"}`,
+                      color:customMode===m?WHITE:NAVY,
+                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:12,cursor:"pointer",WebkitTapHighlightColor:"transparent",
+                    }}>
+                      {m==="player"?"Choose Player":"Add Your Name"}
+                    </button>
+                  ))}
+                </div>
+                {customMode==="player"?(
+                  <select value={selPlayer} onChange={e=>setSelPlayer(e.target.value)}
+                    style={{width:"100%",padding:"10px 12px",borderRadius:8,
+                      border:"1.5px solid #ddd",fontSize:13,background:WHITE,
+                      fontFamily:"inherit",outline:"none"}}>
+                    <option value="">Choose player...</option>
+                    {PLAYERS.map(pl=>(
+                      <option key={pl} value={pl}>{pl}</option>
+                    ))}
+                  </select>
+                ):(
+                  <input placeholder="Enter your name or nickname"
+                    value={customName}
+                    onChange={e=>setCustomName(e.target.value.toUpperCase())}
+                    maxLength={12}
+                    style={{width:"100%",padding:"10px 12px",borderRadius:8,
+                      border:`1.5px solid ${customName?GOLD:"#ddd"}`,fontSize:14,
+                      fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                      letterSpacing:"0.08em",outline:"none",boxSizing:"border-box"}}/>
+                )}
+              </div>
+            )}
+
+            {/* Description */}
+            <div style={{fontSize:12,color:MGRAY,lineHeight:1.6,marginBottom:16}}>
+              {COLLECTIONS.find(c=>c.id===p.collection)?.desc}
+              {" "}Season: {p.season}.
             </div>
 
-            {/* Kids product grid */}
-            <div style={{display:"grid",
-              gridTemplateColumns:"repeat(auto-fill,minmax(145px,1fr))",gap:12}}>
-              {(kidsAgeFilter==="all"?KIDS_PRODUCTS:KIDS_PRODUCTS.filter(p=>p.ageGroup===kidsAgeFilter))
-                .map(p=><ProductCard key={p.id} p={p}/>)}
+            {/* Add to cart button */}
+            <button
+              onClick={()=>{
+                if(!selSize){ return }
+                const q = selQuality==="Match"?p.price+100:p.price
+                handleAddToCart({...p,price:q},selSize,selVariant,selQuality,
+                  {name:customMode==="name"?customName:"",
+                   player:customMode==="player"?selPlayer:""})
+              }}
+              disabled={!selSize}
+              style={{width:"100%",padding:"16px",minHeight:54,
+                background:selSize?NAVY:"#e5e7eb",border:"none",borderRadius:12,
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:17,
+                color:selSize?WHITE:"#aaa",cursor:selSize?"pointer":"not-allowed",
+                WebkitTapHighlightColor:"transparent",
+                boxShadow:selSize?"0 4px 14px rgba(13,27,62,0.3)":"none",
+                transition:"all 0.15s",letterSpacing:"0.04em"}}>
+              {selSize
+                ? `ADD TO CART — P${discPrice(selQuality==="Match"?p.price+100:p.price)}`
+                : "SELECT A SIZE TO CONTINUE"}
+            </button>
+
+            {!selSize&&(
+              <div style={{textAlign:"center",fontSize:11,color:MGRAY,marginTop:6}}>
+                ↑ Select your size above
+              </div>
+            )}
+
+            {/* Promo code entry */}
+            <div style={{marginTop:16,background:LGRAY,borderRadius:10,
+              padding:"12px 14px"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:8}}>
+                🎟 PROMO CODE
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <input placeholder="Enter promo code" value={promoInput}
+                  onChange={e=>setPromoInput(e.target.value.toUpperCase())}
+                  style={{flex:1,padding:"9px 12px",borderRadius:8,
+                    border:`1.5px solid ${promoMsg?.ok?GREEN:promoMsg?.ok===false?RED:"#ddd"}`,
+                    fontSize:13,outline:"none",fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:700,letterSpacing:"0.06em"}}/>
+                <button onClick={applyPromo}
+                  style={{background:NAVY,border:"none",borderRadius:8,
+                    padding:"9px 14px",color:WHITE,fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:800,fontSize:12,cursor:"pointer",flexShrink:0,
+                    WebkitTapHighlightColor:"transparent"}}>
+                  APPLY
+                </button>
+              </div>
+              {promoMsg&&(
+                <div style={{marginTop:6,fontSize:11,fontWeight:700,
+                  color:promoMsg.ok?GREEN:RED}}>
+                  {promoMsg.ok?"✓":"✗"} {promoMsg.text}
+                </div>
+              )}
+              {!isMember&&(
+                <div style={{marginTop:6,fontSize:10,color:MGRAY,lineHeight:1.5}}>
+                  🦡 Join Honey Badger membership for exclusive promo codes + 5% discount
+                </div>
+              )}
             </div>
+
+            <div style={{height:20}}/>
           </div>
-        )}
+        </div>
       </div>
     )
   }
 
-  /* ── TICKETS TAB ──────────────────────────────────────────────── */
-  const TicketsTab=()=>(
-    <div style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch"}}>
-      {fixtures.filter(f=>!f.result).map(fx=>(
-        <div key={fx.id} style={{borderRadius:12,overflow:"hidden",marginBottom:10,
-          boxShadow:"0 1px 6px rgba(0,0,0,0.08)"}}>
-          <div style={{background:NAVY,padding:"8px 14px",display:"flex",
-            justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-              fontSize:"clamp(11px,3vw,13px)",color:GOLD}}>
-              {new Date(fx.match_date).toLocaleDateString("en-GB",
-                {day:"numeric",month:"short",year:"numeric"}).toUpperCase()}
-            </span>
-            <span style={{background:fx.venue==="AWAY"?RED:GREEN,color:WHITE,
-              fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
-              fontFamily:"'Barlow Condensed',sans-serif"}}>{fx.venue}</span>
-          </div>
-          <div style={{background:WHITE,padding:"12px 14px",display:"flex",
-            alignItems:"center",justifyContent:"space-between",gap:8}}>
-            <div style={{minWidth:0}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:"clamp(12px,4vw,15px)",color:NAVY,
-                overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                VILLAREAL FC vs {fx.opponent}
-              </div>
-              <div style={{fontSize:11,color:MGRAY,marginTop:2}}>{fx.competition}</div>
+  /* ── CART VIEW ── */
+  const CartView = () => (
+    <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",background:WHITE}}>
+      {/* Header */}
+      <div style={{background:NAVY,padding:"14px 16px",flexShrink:0,
+        display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <button onClick={()=>setShopView("home")}
+          style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,
+            padding:"6px 12px",color:WHITE,fontSize:13,cursor:"pointer",
+            fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+            WebkitTapHighlightColor:"transparent"}}>← CONTINUE SHOPPING</button>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:16,color:WHITE}}>CART ({cartQty})</div>
+      </div>
+
+      <div style={{flex:1,overflowY:"auto",padding:"12px 14px",
+        WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
+        {cart.length===0?(
+          <div style={{textAlign:"center",padding:"48px 20px"}}>
+            <div style={{fontSize:52,marginBottom:12}}>🛒</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:20,color:NAVY,marginBottom:6}}>YOUR CART IS EMPTY</div>
+            <div style={{fontSize:13,color:MGRAY,marginBottom:20}}>
+              Add some items to get started
             </div>
-            <button style={{background:GOLD,border:"none",borderRadius:8,
-              padding:"8px 14px",fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:800,fontSize:13,color:NAVY,cursor:"pointer",
-              flexShrink:0,minHeight:40}}>
-              {fx.venue==="HOME"?"BUY P25":"AWAY"}
-            </button>
+            <button onClick={()=>setShopView("home")}
+              style={{background:NAVY,border:"none",borderRadius:10,padding:"12px 24px",
+                fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:14,
+                color:WHITE,cursor:"pointer"}}>BROWSE STORE</button>
           </div>
-        </div>
-      ))}
-      {fixtures.filter(f=>!f.result).length===0&&(
-        <div style={{textAlign:"center",padding:"40px 20px",color:MGRAY,fontSize:13}}>
-          No upcoming fixtures yet.
+        ):(
+          <>
+            {/* Member/promo savings banner */}
+            {totalDisc>0&&(
+              <div style={{background:`${GREEN}18`,border:`1px solid ${GREEN}44`,
+                borderRadius:10,padding:"10px 14px",marginBottom:12,
+                display:"flex",alignItems:"center",gap:8}}>
+                <span style={{fontSize:16}}>🎉</span>
+                <div style={{fontSize:12,color:GREEN,fontWeight:700}}>
+                  You're saving P{savedTotal} on this order! ({totalDisc}% off)
+                </div>
+              </div>
+            )}
+
+            {/* Cart items */}
+            {cart.map((item,i)=>(
+              <div key={item.cartId} style={{background:WHITE,borderRadius:12,
+                marginBottom:10,overflow:"hidden",
+                boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                <div style={{display:"flex",gap:12,padding:"12px 14px"}}>
+                  <div style={{width:60,height:60,borderRadius:10,
+                    background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+                    display:"flex",alignItems:"center",justifyContent:"center",
+                    fontSize:28,flexShrink:0}}>
+                    {COLLECTIONS.find(c=>c.id===item.collection)?.emoji||"⚽"}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:14,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
+                      whiteSpace:"nowrap"}}>{item.name}</div>
+                    <div style={{fontSize:11,color:MGRAY,marginTop:2}}>
+                      {item.variant} · {item.size} · {item.quality}
+                      {item.player&&` · ${item.player}`}
+                      {item.customName&&` · "${item.customName}"`}
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",
+                      justifyContent:"space-between",marginTop:6}}>
+                      <div>
+                        <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                          fontWeight:900,fontSize:16,color:NAVY}}>
+                          P{discPrice(item.price)}
+                        </span>
+                        {item.price!==discPrice(item.price)&&(
+                          <span style={{fontSize:10,color:MGRAY,
+                            textDecoration:"line-through",marginLeft:5}}>
+                            P{item.price}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <button onClick={()=>setCart(prev=>prev.map((c,j)=>j===i?{...c,qty:Math.max(1,c.qty-1)}:c))}
+                          style={{width:28,height:28,borderRadius:"50%",background:LGRAY,
+                            border:"none",cursor:"pointer",fontSize:16,fontWeight:700,
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>-</button>
+                        <span style={{fontWeight:700,fontSize:14,minWidth:16,textAlign:"center"}}>
+                          {item.qty}
+                        </span>
+                        <button onClick={()=>setCart(prev=>prev.map((c,j)=>j===i?{...c,qty:c.qty+1}:c))}
+                          style={{width:28,height:28,borderRadius:"50%",background:LGRAY,
+                            border:"none",cursor:"pointer",fontSize:16,fontWeight:700,
+                            display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                        <button onClick={()=>setCart(prev=>prev.filter((_,j)=>j!==i))}
+                          style={{background:"#fef2f2",border:"none",borderRadius:6,
+                            padding:"4px 8px",fontSize:11,color:RED,fontWeight:700,cursor:"pointer"}}>
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Promo code in cart */}
+            <div style={{background:WHITE,borderRadius:12,padding:"12px 14px",
+              marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:11,color:NAVY,letterSpacing:"0.08em",marginBottom:8}}>
+                🎟 PROMO CODE
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <input placeholder="Enter code" value={promoInput}
+                  onChange={e=>setPromoInput(e.target.value.toUpperCase())}
+                  style={{flex:1,padding:"9px 12px",borderRadius:8,
+                    border:`1.5px solid ${promoMsg?.ok?GREEN:promoMsg?.ok===false?RED:"#ddd"}`,
+                    fontSize:13,outline:"none",fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:700,letterSpacing:"0.06em"}}/>
+                <button onClick={applyPromo}
+                  style={{background:NAVY,border:"none",borderRadius:8,padding:"9px 14px",
+                    color:WHITE,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                    fontSize:12,cursor:"pointer",flexShrink:0}}>APPLY</button>
+              </div>
+              {promoMsg&&(
+                <div style={{marginTop:6,fontSize:11,fontWeight:700,
+                  color:promoMsg.ok?GREEN:RED}}>
+                  {promoMsg.ok?"✓":"✗"} {promoMsg.text}
+                </div>
+              )}
+            </div>
+
+            {/* Order summary */}
+            <div style={{background:WHITE,borderRadius:12,padding:"14px",
+              boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:13,color:NAVY,marginBottom:10}}>ORDER SUMMARY</div>
+              {[
+                ["Subtotal",`P${cart.reduce((s,i)=>s+i.price*i.qty,0)}`],
+                isMember?[`Member discount (-${memberDisc}%)`,`-P${Math.round(cart.reduce((s,i)=>s+i.price*memberDisc/100*i.qty,0))}`]:null,
+                promoMsg?.ok?[`Promo ${promoCode} (-${promoDisc}%)`,`-P${Math.round(cart.reduce((s,i)=>s+i.price*promoDisc/100*i.qty,0))}`]:null,
+                ["Delivery","To be confirmed"],
+              ].filter(Boolean).map(([label,val],i)=>(
+                <div key={i} style={{display:"flex",justifyContent:"space-between",
+                  padding:"5px 0",borderBottom:"1px solid #f0f0f0",
+                  fontSize:13,color:label.includes("discount")||label.includes("Promo")?GREEN:NAVY}}>
+                  <span>{label}</span>
+                  <span style={{fontWeight:label==="Delivery"?400:600}}>{val}</span>
+                </div>
+              ))}
+              <div style={{display:"flex",justifyContent:"space-between",
+                padding:"10px 0 0",fontSize:16,fontWeight:900,color:NAVY,
+                fontFamily:"'Barlow Condensed',sans-serif"}}>
+                <span>TOTAL</span>
+                <span>P{cartSubtotal}</span>
+              </div>
+              {savedTotal>0&&(
+                <div style={{background:`${GREEN}18`,borderRadius:6,padding:"6px 10px",
+                  marginTop:8,fontSize:11,color:GREEN,fontWeight:700,textAlign:"center"}}>
+                  🎉 You saved P{savedTotal} on this order!
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {cart.length>0&&(
+        <div style={{padding:"12px 14px",background:WHITE,
+          borderTop:"1px solid #eee",flexShrink:0}}>
+          <button onClick={()=>setShopView("checkout")}
+            style={{width:"100%",padding:"16px",background:NAVY,border:"none",
+              borderRadius:12,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:17,color:WHITE,cursor:"pointer",minHeight:54,
+              boxShadow:"0 4px 14px rgba(13,27,62,0.3)",letterSpacing:"0.04em",
+              WebkitTapHighlightColor:"transparent"}}>
+            CHECKOUT — P{cartSubtotal} →
+          </button>
+          {!isMember&&(
+            <div style={{textAlign:"center",fontSize:11,color:MGRAY,marginTop:8}}>
+              🦡 <span onClick={openMembership}
+                style={{color:NAVY,fontWeight:700,cursor:"pointer",textDecoration:"underline"}}>
+                Join Honey Badger</span> to save 5% on this order
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 
-  /* ── MEMBERSHIP TAB ───────────────────────────────────────────── */
+  /* ── CHECKOUT VIEW ── */
+  const CheckoutView = () => {
+    const [name,    setName]    = useState(profile?.full_name||"")
+    const [email,   setEmail]   = useState(session?.user?.email||"")
+    const [phone,   setPhone]   = useState("")
+    const [address, setAddress] = useState("")
+    const [err,     setErr]     = useState("")
+    const [loading, setLoading] = useState(false)
+
+    const PAY_METHODS = [
+      {id:"orange",label:"Orange Money",icon:"🟠",desc:"Dial *145#"},
+      {id:"myzaka", label:"MyZaka",      icon:"🔵",desc:"Dial *167#"},
+      {id:"eft",    label:"Bank Transfer",icon:"🏦",desc:"FNB / BancABC"},
+    ]
+
+    const confirmOrder = async () => {
+      if(!name||!email||!phone){setErr("Please fill in all fields.");return}
+      if(!payMethod){setErr("Please select a payment method.");return}
+      if(!payRef.trim()){setErr("Please enter your payment reference.");return}
+      setLoading(true)
+      try {
+        await supabase.from("orders").insert({
+          user_id:    session?.user?.id||null,
+          email,
+          full_name:  name,
+          phone,
+          address,
+          items:      JSON.stringify(cart),
+          subtotal:   cartSubtotal,
+          discount:   savedTotal,
+          total:      cartSubtotal,
+          promo_code: promoCode||null,
+          is_member:  isMember,
+          pay_method: payMethod,
+          pay_ref:    payRef,
+          status:     "pending",
+        })
+        setCheckStep(3)
+        setCart([])
+      } catch(e){ setErr("Order failed. Please try again.") }
+      setLoading(false)
+    }
+
+    if(checkStep===3) return (
+      <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",
+        justifyContent:"center",padding:"32px 20px",textAlign:"center",background:WHITE}}>
+        <div style={{fontSize:60,marginBottom:12}}>🎉</div>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:26,color:NAVY,marginBottom:8}}>ORDER PLACED!</div>
+        <div style={{fontSize:13,color:MGRAY,lineHeight:1.7,marginBottom:24,maxWidth:300}}>
+          Thank you! Your order has been received. We'll confirm once payment is verified.
+          Delivery: 3–7 working days.
+        </div>
+        <div style={{background:LGRAY,borderRadius:12,padding:"14px 16px",
+          marginBottom:20,width:"100%",maxWidth:320,textAlign:"left"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:12,color:NAVY,marginBottom:8}}>ORDER REFERENCE</div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:18,color:GOLD2}}>{payRef.toUpperCase()}</div>
+          <div style={{fontSize:11,color:MGRAY,marginTop:4}}>
+            Keep this reference for tracking
+          </div>
+        </div>
+        <button onClick={()=>{setShopView("home");setCheckStep(1);setPayMethod("");setPayRef("")}}
+          style={{background:NAVY,border:"none",borderRadius:12,padding:"14px 32px",
+            fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,
+            color:WHITE,cursor:"pointer"}}>BACK TO STORE</button>
+      </div>
+    )
+
+    return (
+      <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
+        <div style={{background:NAVY,padding:"14px 16px",flexShrink:0,
+          display:"flex",alignItems:"center",gap:12}}>
+          <button onClick={()=>setShopView("cart")}
+            style={{background:"rgba(255,255,255,0.15)",border:"none",borderRadius:8,
+              padding:"6px 12px",color:WHITE,fontSize:13,cursor:"pointer",
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,flexShrink:0}}>
+            ← BACK
+          </button>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+            fontSize:16,color:WHITE}}>CHECKOUT</div>
+          <div style={{marginLeft:"auto",fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:900,fontSize:16,color:GOLD}}>P{cartSubtotal}</div>
+        </div>
+
+        <div style={{flex:1,overflowY:"auto",padding:"14px",
+          background:"#f5f6fa",WebkitOverflowScrolling:"touch"}}>
+
+          {/* Step indicators */}
+          <div style={{display:"flex",gap:6,marginBottom:16,alignItems:"center",
+            justifyContent:"center"}}>
+            {["Details","Payment","Confirm"].map((s,i)=>(
+              <div key={s} style={{display:"flex",alignItems:"center",gap:6}}>
+                <div style={{width:24,height:24,borderRadius:"50%",
+                  background:checkStep>i+1?GREEN:checkStep===i+1?NAVY:"#ddd",
+                  display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  <span style={{fontSize:10,fontWeight:900,color:WHITE}}>
+                    {checkStep>i+1?"✓":i+1}
+                  </span>
+                </div>
+                <span style={{fontSize:10,color:checkStep===i+1?NAVY:MGRAY,fontWeight:checkStep===i+1?700:400}}>
+                  {s}
+                </span>
+                {i<2&&<div style={{width:16,height:2,background:checkStep>i+1?GREEN:"#ddd",borderRadius:1}}/>}
+              </div>
+            ))}
+          </div>
+
+          {/* Step 1 — Details */}
+          {checkStep===1&&(
+            <div style={{background:WHITE,borderRadius:12,padding:"14px",
+              boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:13,color:NAVY,marginBottom:12}}>DELIVERY DETAILS</div>
+              {[
+                {label:"FULL NAME",val:name,set:setName,type:"text",ph:"Your full name"},
+                {label:"EMAIL",val:email,set:setEmail,type:"email",ph:"your@email.com"},
+                {label:"PHONE",val:phone,set:setPhone,type:"tel",ph:"+267 7X XXX XXX"},
+                {label:"DELIVERY ADDRESS",val:address,set:setAddress,type:"text",ph:"Village / Town / Street"},
+              ].map(f=>(
+                <div key={f.label} style={{marginBottom:12}}>
+                  <label style={{fontSize:10,fontWeight:700,color:MGRAY,
+                    fontFamily:"'Barlow Condensed',sans-serif",display:"block",
+                    marginBottom:4,letterSpacing:"0.06em"}}>{f.label}</label>
+                  <input type={f.type} value={f.val} placeholder={f.ph}
+                    onChange={e=>f.set(e.target.value)}
+                    style={{width:"100%",padding:"11px 12px",borderRadius:8,
+                      border:"1.5px solid #e5e7eb",fontSize:14,outline:"none",
+                      boxSizing:"border-box",fontFamily:"inherit"}}
+                    onFocus={e=>e.target.style.borderColor=GOLD}
+                    onBlur={e=>e.target.style.borderColor="#e5e7eb"}/>
+                </div>
+              ))}
+
+              {/* Order summary mini */}
+              <div style={{background:LGRAY,borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                <div style={{display:"flex",justifyContent:"space-between",
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,fontSize:15,color:NAVY}}>
+                  <span>{cartQty} item{cartQty!==1?"s":""}</span>
+                  <span>P{cartSubtotal}</span>
+                </div>
+                {savedTotal>0&&(
+                  <div style={{fontSize:11,color:GREEN,fontWeight:700,marginTop:4}}>
+                    You save P{savedTotal}!
+                  </div>
+                )}
+              </div>
+
+              {err&&<div style={{color:RED,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
+              <button onClick={()=>{
+                if(!name||!email||!phone){setErr("Please fill in all required fields.");return}
+                setErr("");setCheckStep(2)
+              }}
+                style={{width:"100%",padding:"14px",background:NAVY,border:"none",
+                  borderRadius:10,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:15,color:WHITE,cursor:"pointer",minHeight:50}}>
+                CONTINUE TO PAYMENT →
+              </button>
+            </div>
+          )}
+
+          {/* Step 2 — Payment */}
+          {checkStep===2&&(
+            <div>
+              <div style={{background:WHITE,borderRadius:12,padding:"14px",
+                marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:13,color:NAVY,marginBottom:12}}>PAYMENT METHOD</div>
+                {PAY_METHODS.map(m=>(
+                  <div key={m.id} onClick={()=>setPayMethod(m.id)}
+                    style={{padding:"12px 14px",borderRadius:10,cursor:"pointer",
+                      border:`2px solid ${payMethod===m.id?NAVY:"#e5e7eb"}`,
+                      background:payMethod===m.id?"#eef1f8":WHITE,
+                      display:"flex",alignItems:"center",gap:12,marginBottom:8,
+                      WebkitTapHighlightColor:"transparent"}}>
+                    <span style={{fontSize:22}}>{m.icon}</span>
+                    <div style={{flex:1}}>
+                      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                        fontSize:15,color:NAVY}}>{m.label}</div>
+                      <div style={{fontSize:11,color:MGRAY}}>{m.desc}</div>
+                    </div>
+                    <div style={{width:20,height:20,borderRadius:"50%",
+                      border:`2px solid ${payMethod===m.id?NAVY:"#ddd"}`,
+                      background:payMethod===m.id?NAVY:"none",
+                      display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {payMethod===m.id&&<span style={{color:WHITE,fontSize:10}}>✓</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {payMethod&&(
+                <div style={{background:WHITE,borderRadius:12,padding:"14px",
+                  marginBottom:10,boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                  {/* Amount box */}
+                  <div style={{background:NAVY,borderRadius:10,padding:"14px",
+                    textAlign:"center",marginBottom:14}}>
+                    <div style={{fontSize:11,color:"rgba(255,255,255,0.6)",
+                      fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>
+                      AMOUNT DUE
+                    </div>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                      fontSize:36,color:GOLD}}>P{cartSubtotal}</div>
+                    {savedTotal>0&&<div style={{fontSize:11,color:GREEN,marginTop:4}}>
+                      Saved P{savedTotal}
+                    </div>}
+                  </div>
+
+                  {/* Instructions */}
+                  <div style={{background:`${GOLD}18`,border:`1px solid ${GOLD}44`,
+                    borderRadius:8,padding:"10px 12px",marginBottom:12}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                      fontSize:11,color:GOLD2,marginBottom:6}}>HOW TO PAY</div>
+                    {payMethod==="orange"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
+                      1. Dial <strong>*145#</strong> on your phone<br/>
+                      2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>
+                      3. Reference: <strong>VILLAREAL-ORDER</strong>
+                    </div>}
+                    {payMethod==="myzaka"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
+                      1. Open MyZaka or dial <strong>*167#</strong><br/>
+                      2. Send <strong>P{cartSubtotal}</strong> to <strong>74000001</strong><br/>
+                      3. Reference: <strong>VILLAREAL-ORDER</strong>
+                    </div>}
+                    {payMethod==="eft"&&<div style={{fontSize:12,color:NAVY,lineHeight:1.7}}>
+                      Bank: <strong>FNB Botswana</strong><br/>
+                      Account: <strong>62012345678</strong><br/>
+                      Branch: <strong>282672</strong><br/>
+                      Amount: <strong>P{cartSubtotal}</strong><br/>
+                      Reference: <strong>your email address</strong>
+                    </div>}
+                  </div>
+
+                  <label style={{fontSize:10,fontWeight:700,color:MGRAY,
+                    fontFamily:"'Barlow Condensed',sans-serif",display:"block",
+                    marginBottom:4,letterSpacing:"0.06em"}}>
+                    PAYMENT REFERENCE / CONFIRMATION NUMBER
+                  </label>
+                  <input placeholder="e.g. TXN123456789" value={payRef}
+                    onChange={e=>setPayRef(e.target.value)}
+                    style={{width:"100%",padding:"12px",borderRadius:8,
+                      border:`1.5px solid ${payRef?GOLD:"#e5e7eb"}`,fontSize:14,
+                      outline:"none",boxSizing:"border-box",fontFamily:"inherit"}}/>
+                  <div style={{fontSize:10,color:MGRAY,marginTop:4}}>
+                    Enter the transaction reference from your payment confirmation
+                  </div>
+                </div>
+              )}
+
+              {err&&<div style={{color:RED,fontSize:12,marginBottom:10,fontWeight:600}}>{err}</div>}
+
+              <div style={{display:"flex",gap:10}}>
+                <button onClick={()=>{setErr("");setCheckStep(1)}}
+                  style={{flex:1,padding:"13px",background:"#f0f0f0",border:"none",
+                    borderRadius:10,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                    fontSize:14,color:NAVY,cursor:"pointer",minHeight:48}}>
+                  ← BACK
+                </button>
+                <button onClick={confirmOrder} disabled={loading||!payMethod||!payRef}
+                  style={{flex:2,padding:"13px",
+                    background:loading||!payMethod||!payRef?"#e5e7eb":GREEN,
+                    border:"none",borderRadius:10,
+                    fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                    fontSize:14,color:loading||!payMethod||!payRef?"#aaa":WHITE,
+                    cursor:loading||!payMethod||!payRef?"not-allowed":"pointer",
+                    minHeight:48}}>
+                  {loading?"PROCESSING...":"CONFIRM ORDER ✓"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── TICKETS TAB ── */
+  const TicketsTab=()=>(
+    <div style={{overflowY:"auto",flex:1,padding:12,WebkitOverflowScrolling:"touch",
+      background:"#f5f6fa"}}>
+      {fixtures.filter(f=>!f.result).length===0&&(
+        <div style={{textAlign:"center",padding:"40px 20px",color:MGRAY,fontSize:13}}>
+          No upcoming fixtures.
+        </div>
+      )}
+      {fixtures.filter(f=>!f.result).map(fx=>(
+        <div key={fx.id} style={{borderRadius:12,overflow:"hidden",marginBottom:10,
+          boxShadow:"0 1px 6px rgba(0,0,0,0.08)",background:WHITE}}>
+          <div style={{background:NAVY,padding:"8px 14px",display:"flex",
+            justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+              fontSize:13,color:GOLD}}>
+              {new Date(fx.match_date).toLocaleDateString("en-GB",
+                {day:"numeric",month:"short",year:"numeric"}).toUpperCase()}
+            </span>
+            <span style={{background:fx.venue==="HOME"?GREEN:RED,color:WHITE,
+              fontSize:9,fontWeight:900,padding:"2px 7px",borderRadius:4,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>{fx.venue}</span>
+          </div>
+          <div style={{padding:"12px 14px",display:"flex",
+            alignItems:"center",justifyContent:"space-between",gap:8}}>
+            <div style={{minWidth:0}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:15,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
+                whiteSpace:"nowrap"}}>VILLAREAL FC vs {fx.opponent}</div>
+              <div style={{fontSize:11,color:MGRAY,marginTop:2}}>{fx.competition}</div>
+            </div>
+            <button style={{background:GOLD,border:"none",borderRadius:8,
+              padding:"9px 16px",fontFamily:"'Barlow Condensed',sans-serif",
+              fontWeight:800,fontSize:13,color:NAVY,cursor:"pointer",
+              flexShrink:0,minHeight:40}}>
+              {fx.venue==="HOME"?`BUY P25${isMember?" (P24)":""}`:  "AWAY"}
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  /* ── MEMBERSHIP TAB ── */
   const MembershipTab=()=>{
     const [billing,setBilling]=useState("yearly")
     const isYearly=billing==="yearly"
@@ -1784,21 +2397,18 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
           padding:"clamp(18px,5vw,28px) clamp(14px,4vw,20px)",position:"relative",overflow:"hidden"}}>
           <div style={{opacity:0.07,position:"absolute",right:-20,top:-20}}><Logo size={180}/></div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(26px,8vw,40px)",color:WHITE,lineHeight:1}}>
-            THE HONEY BADGER
-          </div>
+            fontSize:"clamp(26px,8vw,40px)",color:WHITE,lineHeight:1}}>THE HONEY BADGER</div>
           <div style={{fontSize:12,color:"#aaa",marginBottom:16,marginTop:4}}>
             Villareal FC Premium Membership
           </div>
-          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",
-            borderRadius:10,padding:3,marginBottom:16}}>
+          <div style={{display:"flex",background:"rgba(255,255,255,0.1)",borderRadius:10,
+            padding:3,marginBottom:16}}>
             {["monthly","yearly"].map(b=>(
               <button key={b} onClick={()=>setBilling(b)} style={{
                 flex:1,padding:"9px 0",minHeight:42,
                 background:billing===b?WHITE:"none",border:"none",borderRadius:8,
-                cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",
-                fontWeight:800,fontSize:"clamp(11px,3vw,13px)",
-                color:billing===b?NAVY:"#aaa",
+                cursor:"pointer",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:"clamp(11px,3vw,13px)",color:billing===b?NAVY:"#aaa",
                 display:"flex",alignItems:"center",justifyContent:"center",gap:6,
                 WebkitTapHighlightColor:"transparent"}}>
                 {b.toUpperCase()}
@@ -1809,18 +2419,15 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
           </div>
           <div style={{display:"flex",alignItems:"baseline",gap:4,marginBottom:4}}>
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:"clamp(36px,10vw,48px)",color:GOLD}}>
-              P{isYearly?200:20}
-            </span>
+              fontSize:"clamp(36px,10vw,48px)",color:GOLD}}>P{isYearly?200:20}</span>
             <span style={{color:"#aaa",fontSize:14}}>{isYearly?"/ Year":"/ Month"}</span>
           </div>
           <div style={{fontSize:12,color:"#888",marginBottom:18}}>
-            {isYearly?"P20/month equivalent · Save P40 vs monthly"
-              :"Or P200/year and save 17%"}
+            {isYearly?"P20/month equivalent · Save P40 vs monthly":"Or P200/year and save 17%"}
           </div>
           {["Early access to match tickets","10% off match-day tickets",
             "5% off official store","Exclusive member kit number",
-            "Priority squad updates"].map((b,i)=>(
+            "Priority squad updates","Exclusive promo codes"].map((b,i)=>(
             <div key={i} style={{display:"flex",alignItems:"center",gap:10,marginBottom:9}}>
               <span style={{color:GOLD,fontSize:16,flexShrink:0}}>✔</span>
               <span style={{color:WHITE,fontSize:"clamp(12px,3.5vw,14px)",
@@ -1831,8 +2438,8 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
             <button onClick={openMembership}
               style={{width:"100%",padding:"14px",background:GOLD,border:"none",
                 borderRadius:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:16,color:NAVY,cursor:"pointer",WebkitTapHighlightColor:"transparent",
-                minHeight:50}}>
+                fontSize:16,color:NAVY,cursor:"pointer",minHeight:50,
+                WebkitTapHighlightColor:"transparent"}}>
               JOIN THE HONEY BADGERS →
             </button>
           </div>
@@ -1841,56 +2448,58 @@ const StoreScreen=({goToAuth,fixtures,openMembership})=>{
     )
   }
 
+  /* ── ROOT RENDER ── */
   return (
     <div style={{flex:1,display:"flex",flexDirection:"column",background:WHITE,
       overflow:"hidden",position:"relative"}}>
 
-      {/* Modals */}
-      {selItem&&!showCart&&<ProductModal/>}
-      {showCart&&<CartModal/>}
+      {/* Tab bar */}
+      {(shopView==="home"||shopView==="tickets"||shopView==="membership")&&(
+        <div style={{display:"flex",borderBottom:`1px solid #eee`,
+          padding:"0 14px",gap:14,overflowX:"auto",flexShrink:0,
+          alignItems:"center",background:WHITE,zIndex:10}}>
+          {["shop","tickets","membership"].map(t=>(
+            <button key={t} onClick={()=>{setSubTab(t);if(t==="shop")setShopView("home");else setShopView(t)}} style={{
+              background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
+              fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",
+              fontWeight:700,color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
+              borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
+              textTransform:"uppercase",WebkitTapHighlightColor:"transparent",
+              whiteSpace:"nowrap",
+            }}>{t}</button>
+          ))}
+          {/* Cart icon */}
+          <button onClick={()=>setShopView("cart")}
+            style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",
+              position:"relative",padding:"8px 0",flexShrink:0,
+              WebkitTapHighlightColor:"transparent"}}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke={NAVY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <path d="M16 10a4 4 0 01-8 0"/>
+            </svg>
+            {cartQty>0&&(
+              <div style={{position:"absolute",top:2,right:-4,background:RED,color:WHITE,
+                borderRadius:"50%",width:17,height:17,display:"flex",alignItems:"center",
+                justifyContent:"center",fontSize:9,fontWeight:900}}>{cartQty}</div>
+            )}
+          </button>
+        </div>
+      )}
 
-      {/* Tab bar + cart icon */}
-      <div style={{display:"flex",borderBottom:`1px solid #eee`,
-        padding:"0 14px",gap:14,overflowX:"auto",flexShrink:0,
-        alignItems:"center",background:WHITE}}>
-        {["shop","tickets","membership"].map(t=>(
-          <button key={t} onClick={()=>setSubTab(t)} style={{
-            background:"none",border:"none",cursor:"pointer",padding:"12px 0 10px",
-            fontFamily:"'Barlow Condensed',sans-serif",fontSize:"clamp(11px,3vw,13px)",
-            fontWeight:700,color:subTab===t?NAVY:MGRAY,letterSpacing:"0.05em",
-            borderBottom:subTab===t?`2.5px solid ${NAVY}`:"2.5px solid transparent",
-            textTransform:"uppercase",WebkitTapHighlightColor:"transparent",
-            whiteSpace:"nowrap",
-          }}>{t}</button>
-        ))}
-        {/* Cart button */}
-        <button onClick={()=>setShowCart(true)}
-          style={{marginLeft:"auto",background:"none",border:"none",cursor:"pointer",
-            position:"relative",padding:"8px 0",flexShrink:0,
-            WebkitTapHighlightColor:"transparent"}}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"
-            stroke={NAVY} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
-            <line x1="3" y1="6" x2="21" y2="6"/>
-            <path d="M16 10a4 4 0 01-8 0"/>
-          </svg>
-          {cartQty>0&&(
-            <div style={{position:"absolute",top:2,right:-4,
-              background:RED,color:WHITE,borderRadius:"50%",
-              width:17,height:17,display:"flex",alignItems:"center",
-              justifyContent:"center",fontSize:9,fontWeight:900}}>
-              {cartQty}
-            </div>
-          )}
-        </button>
-      </div>
-
-      {subTab==="shop"       && <ShopTab/>}
-      {subTab==="tickets"    && <TicketsTab/>}
-      {subTab==="membership" && <MembershipTab/>}
+      {/* Views */}
+      {(shopView==="home"||subTab==="shop")&&shopView==="home"      && <HomeView/>}
+      {shopView==="collection"                                        && <CollectionView/>}
+      {shopView==="product"                                           && <ProductView/>}
+      {shopView==="cart"                                              && <CartView/>}
+      {shopView==="checkout"                                          && <CheckoutView/>}
+      {shopView==="tickets"||subTab==="tickets"&&shopView!=="cart"   ? subTab==="tickets"&&shopView!=="cart"&&shopView!=="checkout"?<TicketsTab/>:null:null}
+      {shopView==="membership"||subTab==="membership"&&shopView==="membership"?<MembershipTab/>:null}
     </div>
   )
 }
+
 
 /* ══════════════════════════════════════════════════════════════════════════════
    AUTH — real Supabase auth, secure
@@ -2455,7 +3064,8 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
 
   const selectedPlan   = PLANS.find(p => p.id === plan)
   const needsVerify    = ageGroup === "adult"
-  const isPaid         = selectedPlan?.prices?.adult_monthly > 0
+  const price          = getPrice(selectedPlan, ageGroup) || 0
+  const isPaid         = price > 0
   const totalSteps     = needsVerify ? 5 : isPaid ? 4 : 3
 
   const getPrice = (p, ag) => {
@@ -2896,7 +3506,9 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
       setNameVal(localName)
       setIdType(localIdType)
       setError("")
-      needsVerify ? setStep(4) : handleSubmit()
+      if (needsVerify)     { setStep(4) }
+      else if (isPaid)     { setStep(3.5) }
+      else                 { handleSubmit() }
     }
 
     return (
@@ -3651,7 +4263,7 @@ export default function App(){
       case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
       case "calendar": return <CalendarScreen/>
       case "clips":    return <ClipsScreen/>
-      case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)}/>
+      case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)} session={session} profile={profile}/>
       case "profile":  return <ProfileScreen session={session} profile={profile}
                          onLogout={handleLogout} goToAuth={goToAuth}
                          openMembership={()=>setShowMembership(true)}/>
@@ -3673,6 +4285,8 @@ export default function App(){
           min-height:100dvh;
           -webkit-font-smoothing:antialiased;
         }
+        .phone-frame { --clip-h: calc(680px - 180px); }
+        @media(max-width:519px){ .phone-frame { --clip-h: calc(100dvh - 130px); } }
         input,button{font-family:inherit}
         input{-webkit-appearance:none;appearance:none}
 
