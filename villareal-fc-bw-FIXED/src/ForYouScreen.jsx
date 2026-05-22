@@ -1,142 +1,299 @@
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
 import DonateModal from "./DonateModal"
-import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Pill, Btn, SQUAD } from "./constants"
+import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Btn, Pill } from "./constants"
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   FOR YOU
-══════════════════════════════════════════════════════════════════════════════ */
-const ForYouScreen = ({ userEmail, goToAuth, session, openMembership }) => {
-  const [showDonate, setShowDonate] = useState(false)
-  const [news, setNews] = useState([])
+const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
+  const [news,        setNews]        = useState([])
+  const [fixtures,    setFixtures]    = useState([])
+  const [showDonate,  setShowDonate]  = useState(false)
+  const [countdown,   setCountdown]   = useState(null)
+  const [activeStory, setActiveStory] = useState(0)
+
+  // Road to Top 8 — season results
+  const ROAD = [
+    { opp:"STONE BREAKERS", score:"2-0", win:true  },
+    { opp:"MIGHTY BIRDS",   score:"1-1", win:false },
+    { opp:"DESERT BUFFALOS",score:"0-2", win:false },
+    { opp:"ZOWA UNITED",    score:"3-1", win:true  },
+    { opp:"GOLDEN BIRDS",   score:"2-1", win:true  },
+  ]
+
   useEffect(()=>{
     supabase.from("news").select("*").eq("published",true)
-      .order("created_at",{ascending:false})
+      .order("created_at",{ascending:false}).limit(10)
       .then(({data})=>{ if(data) setNews(data) })
+    supabase.from("fixtures").select("*").order("match_date",{ascending:true})
+      .then(({data})=>{ if(data) setFixtures(data) })
   },[])
-  return (
-    <div style={{flex:1,overflowY:"auto",background:WHITE,WebkitOverflowScrolling:"touch"}}>
-      {showDonate && <DonateModal onClose={()=>setShowDonate(false)} userEmail={userEmail}/>}
 
-      {/* Header */}
-      <div style={{padding:"12px 14px 10px",display:"flex",alignItems:"center",
-        justifyContent:"space-between",borderBottom:`1px solid #eee`}}>
-        <div style={{display:"flex",alignItems:"center",gap:10,minWidth:0}}>
-          <Logo size={36}/>
-          <div style={{minWidth:0}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:"clamp(15px,4.5vw,19px)",color:NAVY,lineHeight:1}}>
-              VILLAREAL FC 🏆
+  // Countdown to next fixture
+  const nextFixture = fixtures.find(f=>!f.result && new Date(f.match_date) >= new Date())
+  useEffect(()=>{
+    if(!nextFixture) return
+    const tick = () => {
+      const matchTime = new Date(`${nextFixture.match_date}T${nextFixture.kick_off||"15:00"}:00`)
+      const diff = matchTime - new Date()
+      if(diff <= 0){ setCountdown(null); return }
+      const d = Math.floor(diff/86400000)
+      const h = Math.floor((diff%86400000)/3600000)
+      const m = Math.floor((diff%3600000)/60000)
+      const s = Math.floor((diff%60000)/1000)
+      setCountdown({d,h,m,s})
+    }
+    tick()
+    const id = setInterval(tick, 1000)
+    return ()=>clearInterval(id)
+  },[nextFixture])
+
+  const CountdownBox = ({val,label}) => (
+    <div style={{textAlign:"center",minWidth:"clamp(44px,11vw,56px)"}}>
+      <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+        fontSize:"clamp(22px,6vw,30px)",color:GOLD,lineHeight:1,
+        background:"rgba(255,255,255,0.1)",borderRadius:8,
+        padding:"4px 6px",minWidth:44}}>
+        {String(val).padStart(2,"0")}
+      </div>
+      <div style={{fontSize:"clamp(8px,2vw,9px)",color:"rgba(255,255,255,0.6)",
+        marginTop:3,letterSpacing:"0.08em",fontFamily:"'Barlow Condensed',sans-serif",
+        fontWeight:700}}>{label}</div>
+    </div>
+  )
+
+  const recentResults = fixtures.filter(f=>f.result).slice(-5)
+
+  return (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",
+      background:"#f5f6fa"}}>
+
+      {showDonate&&<DonateModal onClose={()=>setShowDonate(false)} session={session}/>}
+
+      {/* ── NEXT MATCH COUNTDOWN ── */}
+      {nextFixture&&countdown&&(
+        <div style={{background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 100%)`,
+          padding:"clamp(14px,4vw,20px) clamp(14px,4vw,18px)",
+          position:"relative",overflow:"hidden"}}>
+          <div style={{opacity:0.06,position:"absolute",right:-20,top:-20,pointerEvents:"none"}}>
+            <Logo size={180}/>
+          </div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:"clamp(9px,2.5vw,11px)",color:GOLD,letterSpacing:"0.12em",marginBottom:8}}>
+            NEXT MATCH
+          </div>
+          {/* Teams row */}
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+            marginBottom:12,gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+              <div style={{width:36,height:36,borderRadius:"50%",
+                background:"rgba(255,255,255,0.1)",flexShrink:0,
+                display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <Logo size={26}/>
+              </div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:"clamp(13px,4vw,17px)",color:WHITE,lineHeight:1}}>
+                VILLAREAL FC
+              </div>
             </div>
-            <div style={{fontSize:"clamp(9px,2.5vw,11px)",color:MGRAY}}>BRFA Div 1 · Season 2026/27</div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:"clamp(14px,4vw,18px)",color:GOLD,flexShrink:0}}>VS</div>
+            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,
+              minWidth:0,justifyContent:"flex-end"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:"clamp(12px,3.5vw,15px)",color:WHITE,lineHeight:1,
+                textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",
+                whiteSpace:"nowrap"}}>
+                {nextFixture.opponent}
+              </div>
+              <div style={{width:36,height:36,borderRadius:"50%",
+                background:"rgba(255,255,255,0.1)",flexShrink:0,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:18}}>⚽</div>
+            </div>
+          </div>
+          {/* Match info */}
+          <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:"rgba(255,255,255,0.6)",
+            marginBottom:12,display:"flex",gap:10,alignItems:"center"}}>
+            <span>📅 {new Date(nextFixture.match_date).toLocaleDateString("en-GB",
+              {weekday:"short",day:"numeric",month:"short"})}</span>
+            <span>⏰ {nextFixture.kick_off||"15:00"}</span>
+            <span style={{background:nextFixture.venue==="HOME"?GREEN:RED,
+              color:WHITE,padding:"1px 6px",borderRadius:3,fontSize:9,fontWeight:800,
+              fontFamily:"'Barlow Condensed',sans-serif"}}>
+              {nextFixture.venue||"HOME"}
+            </span>
+          </div>
+          {/* Countdown */}
+          <div style={{display:"flex",gap:"clamp(6px,2vw,10px)",alignItems:"center"}}>
+            <CountdownBox val={countdown.d} label="DAYS"/>
+            <div style={{color:"rgba(255,255,255,0.4)",fontWeight:900,fontSize:20,
+              marginBottom:14}}>:</div>
+            <CountdownBox val={countdown.h} label="HRS"/>
+            <div style={{color:"rgba(255,255,255,0.4)",fontWeight:900,fontSize:20,
+              marginBottom:14}}>:</div>
+            <CountdownBox val={countdown.m} label="MINS"/>
+            <div style={{color:"rgba(255,255,255,0.4)",fontWeight:900,fontSize:20,
+              marginBottom:14}}>:</div>
+            <CountdownBox val={countdown.s} label="SECS"/>
+            <div style={{marginLeft:"auto"}}>
+              <div style={{background:GOLD,color:NAVY,borderRadius:8,
+                padding:"8px 12px",fontFamily:"'Barlow Condensed',sans-serif",
+                fontWeight:900,fontSize:"clamp(10px,2.8vw,12px)",
+                letterSpacing:"0.06em",textAlign:"center",cursor:"pointer"}}
+                onClick={()=>setActiveTab&&setActiveTab("calendar")}>
+                MATCH<br/>CENTER
+              </div>
+            </div>
           </div>
         </div>
-        <button onClick={session?undefined:goToAuth} style={{width:42,height:42,borderRadius:"50%",flexShrink:0,
-          background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
-          border:`2.5px solid ${NAVY}`,display:"flex",alignItems:"center",justifyContent:"center",
-          cursor:"pointer",WebkitTapHighlightColor:"transparent"}}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={NAVY} strokeWidth="2">
-            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-            <circle cx="12" cy="8" r="4"/>
-          </svg>
-        </button>
-      </div>
+      )}
 
-      {/* Quick links */}
-      <div style={{padding:"10px 12px",display:"flex",gap:8,overflowX:"auto",borderBottom:`1px solid #eee`}}>
-        {["🔥 LAST GAME","👕 SHOP","🤝 MEMBERSHIP"].map(l=>(
-          <button key={l} style={{background:"none",border:`1.5px solid #ddd`,borderRadius:20,
-            padding:"6px 14px",fontSize:"clamp(10px,2.5vw,12px)",fontWeight:700,whiteSpace:"nowrap",
-            fontFamily:"'Barlow Condensed',sans-serif",color:NAVY,cursor:"pointer",
-            WebkitTapHighlightColor:"transparent",minHeight:36}}>{l}</button>
+      {/* ── QUICK ACTIONS ── */}
+      <div style={{padding:"10px 12px 0",display:"flex",gap:8,overflowX:"auto",
+        WebkitOverflowScrolling:"touch"}}>
+        {[
+          {icon:"🎟",label:"TICKETS",  action:()=>setActiveTab&&setActiveTab("store")},
+          {icon:"👕",label:"SHOP",     action:()=>setActiveTab&&setActiveTab("store")},
+          {icon:"❤️",label:"DONATE",   action:()=>setShowDonate(true)},
+          {icon:"📰",label:"NEWS",     action:null},
+          {icon:"🦡",label:"MEMBERS",  action:openMembership},
+        ].map(item=>(
+          <button key={item.label} onClick={item.action||undefined}
+            style={{flexShrink:0,display:"flex",flexDirection:"column",
+              alignItems:"center",gap:4,padding:"8px 12px",
+              background:WHITE,border:"1.5px solid #eee",borderRadius:12,
+              cursor:item.action?"pointer":"default",minWidth:60,
+              WebkitTapHighlightColor:"transparent",
+              boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
+            <span style={{fontSize:20}}>{item.icon}</span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:9,color:NAVY,letterSpacing:"0.06em"}}>{item.label}</span>
+          </button>
         ))}
       </div>
 
-      {/* Hero card */}
-      <div style={{margin:"12px 12px 10px",borderRadius:14,overflow:"hidden",
-        boxShadow:"0 4px 20px rgba(0,0,0,0.13)"}}>
-        <div style={{background:`linear-gradient(160deg,${NAVY},#1a3060)`,
-          padding:"clamp(14px,4vw,20px)",position:"relative",overflow:"hidden"}}>
-          <div style={{position:"absolute",right:-16,bottom:-16,opacity:0.07}}><Logo size={130}/></div>
-          <Pill label="MATCH" bg={GOLD} color={NAVY}/>
+      {/* ── ROAD TO TOP 8 ── */}
+      {recentResults.length>0&&(
+        <div style={{padding:"14px 12px 0"}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(22px,6vw,30px)",color:WHITE,marginTop:8,lineHeight:1.05}}>
-            VILLAREAL HOLD<br/>STONE BREAKERS 1–1
+            fontSize:"clamp(14px,4vw,17px)",color:NAVY,marginBottom:10,
+            display:"flex",alignItems:"center",gap:8}}>
+            🏆 ROAD TO TOP 8
+            <span style={{fontSize:11,color:MGRAY,fontWeight:600}}>
+              · Season 2026/27
+            </span>
           </div>
-          <div style={{fontSize:"clamp(11px,3vw,13px)",color:"#aaa",marginTop:6}}>
-            A crucial point in the BRFA survival race
+          <div style={{display:"flex",gap:8,overflowX:"auto",
+            WebkitOverflowScrolling:"touch",paddingBottom:4}}>
+            {recentResults.map((f,i)=>{
+              const win  = f.result==="W"
+              const draw = f.result==="D"
+              return (
+                <div key={i} style={{flexShrink:0,display:"flex",flexDirection:"column",
+                  alignItems:"center",gap:5}}>
+                  <div style={{
+                    width:"clamp(52px,14vw,64px)",
+                    height:"clamp(52px,14vw,64px)",
+                    borderRadius:"50%",
+                    border:`3px solid ${win?GOLD:draw?"#888":RED}`,
+                    background:win?`${GOLD}18`:draw?"#f5f5f5":"#fef2f2",
+                    display:"flex",flexDirection:"column",
+                    alignItems:"center",justifyContent:"center",
+                  }}>
+                    <span style={{fontSize:14}}>⚽</span>
+                    <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                      fontWeight:900,fontSize:"clamp(9px,2.5vw,11px)",
+                      color:win?GOLD2:draw?MGRAY:RED,lineHeight:1}}>
+                      {f.score_us}-{f.score_them}
+                    </span>
+                  </div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:700,fontSize:"clamp(8px,2vw,9px)",color:MGRAY,
+                    textAlign:"center",maxWidth:64,
+                    overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                    {f.opponent}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
-        <div style={{background:GOLD,padding:"9px 16px",display:"flex",
-          justifyContent:"space-between",alignItems:"center"}}>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:"clamp(10px,3vw,12px)",color:NAVY}}>READ MATCH REPORT →</span>
-          <span style={{fontSize:11,color:NAVY,fontWeight:600}}>FT</span>
+      )}
+
+      {/* ── DONATE BANNER ── */}
+      <div style={{margin:"12px 12px 0"}}>
+        <div onClick={()=>setShowDonate(true)}
+          style={{background:`linear-gradient(135deg,${RED},#922b21)`,
+            borderRadius:14,padding:"14px 16px",cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"space-between",
+            WebkitTapHighlightColor:"transparent",
+            boxShadow:"0 4px 14px rgba(192,57,43,0.3)"}}>
+          <div>
+            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:"clamp(14px,4vw,18px)",color:WHITE,lineHeight:1}}>
+              ❤️ SUPPORT THE HONEY BADGERS
+            </div>
+            <div style={{fontSize:"clamp(11px,3vw,13px)",color:"rgba(255,255,255,0.75)",
+              marginTop:4}}>
+              Every pula helps the team grow
+            </div>
+          </div>
+          <div style={{background:WHITE,color:RED,borderRadius:8,
+            padding:"8px 14px",fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:900,fontSize:"clamp(11px,3vw,13px)",flexShrink:0,
+            letterSpacing:"0.04em"}}>
+            DONATE →
+          </div>
         </div>
       </div>
 
-      {/* Donate */}
-      <div style={{margin:"0 12px 12px"}}>
-        <button onClick={()=>setShowDonate(true)} style={{
-          width:"100%",padding:"clamp(12px,3.5vw,15px) 16px",
-          background:`linear-gradient(135deg,${RED},#a93226)`,
-          border:"none",borderRadius:14,minHeight:60,
-          display:"flex",alignItems:"center",justifyContent:"space-between",
-          cursor:"pointer",WebkitTapHighlightColor:"transparent",
-          boxShadow:"0 4px 14px rgba(192,57,43,0.3)"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <span style={{fontSize:"clamp(20px,5vw,26px)"}}>❤️</span>
-            <div style={{textAlign:"left"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(13px,4vw,16px)",color:WHITE}}>
-                SUPPORT THE HONEY BADGERS
-              </div>
-              <div style={{fontSize:"clamp(10px,2.5vw,12px)",color:"rgba(255,255,255,0.8)",marginTop:1}}>
-                Help us fight for promotion
-              </div>
-            </div>
+      {/* ── NEWS FEED ── */}
+      <div style={{padding:"14px 12px 20px"}}>
+        <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+          fontSize:"clamp(14px,4vw,17px)",color:NAVY,marginBottom:10}}>
+          📰 LATEST NEWS
+        </div>
+        {news.length===0?(
+          <div style={{textAlign:"center",padding:"24px",color:MGRAY,fontSize:13,
+            background:WHITE,borderRadius:12}}>
+            No news yet. Check back soon!
           </div>
-          <div style={{background:WHITE,borderRadius:8,padding:"6px 12px",flexShrink:0,
-            fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-            fontSize:"clamp(11px,3vw,13px)",color:RED}}>DONATE</div>
-        </button>
-      </div>
-
-      {/* News */}
-      <div style={{padding:"0 12px 20px"}}>
-        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-          <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-            fontSize:"clamp(13px,3.5vw,15px)",color:NAVY}}>LATEST NEWS</span>
-          <span style={{fontSize:13,color:GOLD,fontWeight:700,
-            fontFamily:"'Barlow Condensed',sans-serif"}}>More ›</span>
-        </div>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10}}>
-          {(news.length?news:[
-            {id:1,title:"SQUAD ANNOUNCEMENT",tag:"NEW"},
-            {id:2,title:"HOME KIT REVEAL 2026/27",tag:"NEW"},
-            {id:3,title:"MATCH REPORT: 1-1 DRAW",tag:"MATCH"},
-          ]).slice(0,4).map((n,i)=>(
-            <div key={n.id||i} style={{
-              borderRadius:12,overflow:"hidden",position:"relative",
-              background:`linear-gradient(160deg,${NAVY},#1a3060)`,
-              minHeight:110,display:"flex",flexDirection:"column",
-              justifyContent:"flex-end",padding:10}}>
-              <div style={{position:"absolute",top:8,left:8}}>
-                <Pill label={n.tag||"NEW"} bg={GOLD} color={NAVY}/>
+        ):(
+          <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            {news.map((n,i)=>(
+              <div key={n.id} style={{background:WHITE,borderRadius:14,
+                overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.07)"}}>
+                {/* Coloured top strip */}
+                <div style={{height:4,background:i===0?GOLD:i===1?GREEN:NAVY}}/>
+                <div style={{padding:"12px 14px"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                    <span style={{background:NAVY,color:GOLD,fontSize:9,fontWeight:900,
+                      padding:"2px 7px",borderRadius:4,
+                      fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.06em"}}>
+                      {n.tag||"NEWS"}
+                    </span>
+                    <span style={{fontSize:11,color:MGRAY}}>
+                      {new Date(n.created_at).toLocaleDateString("en-GB",
+                        {day:"numeric",month:"short"})}
+                    </span>
+                  </div>
+                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                    fontSize:"clamp(14px,4vw,17px)",color:NAVY,lineHeight:1.2,
+                    marginBottom:6}}>{n.title}</div>
+                  {n.summary&&(
+                    <div style={{fontSize:"clamp(12px,3vw,13px)",color:MGRAY,
+                      lineHeight:1.6,display:"-webkit-box",
+                      WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>
+                      {n.summary}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{opacity:0.08,position:"absolute",right:-8,top:-8}}><Logo size={80}/></div>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                fontSize:"clamp(11px,3vw,13px)",color:WHITE,lineHeight:1.2}}>
-                {n.title}
-              </span>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
-
 
 export default ForYouScreen
