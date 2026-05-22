@@ -1,43 +1,125 @@
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
 import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Ico, Btn } from "./constants"
+import DigitalMembershipCard from "./DigitalMembershipCard"
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PROFILE
 ══════════════════════════════════════════════════════════════════════════════ */
 const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
-  const benefits=[
+
+  // ── Benefits pulled from actual tier perks ──────────────────────────────────
+  const honeyBadgerBenefits=[
     {
-      title:"EARLY ACCESS TO TICKETS",
-      sub:"Exclusive 48hr pre-sale",
-      emoji:"🎟️",
+      title:"FREE ENTRY TO HOME MATCHES",
+      sub:"Walk in free every home game",
+      emoji:"🏟️",
       bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
     },
     {
-      title:"MATCH DAY TICKETS",
-      sub:"10% off every match",
-      emoji:"⚽",
+      title:"20% OFF MATCH-DAY TICKETS",
+      sub:"Biggest discount on all match tickets",
+      emoji:"🎟️",
       bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
     },
     {
-      title:"OFFICIAL STORE",
-      sub:"5% off all merch",
+      title:"10% OFF OFFICIAL STORE",
+      sub:"Save on all merch & kits",
       emoji:"👕",
       bg:"linear-gradient(135deg,#4a2000,#2a1200)",
     },
     {
-      title:"LIVE MATCH STREAMS",
-      sub:"Exclusive access",
-      emoji:"📺",
+      title:"DIGITAL MEMBERSHIP CARD",
+      sub:"Your official Honey Badger card",
+      emoji:"💳",
+      bg:"linear-gradient(135deg,#7a6000,#3a2e00)",
+    },
+    {
+      title:"EXCLUSIVE MEMBER EVENTS",
+      sub:"Invites to member-only events",
+      emoji:"🎉",
       bg:"linear-gradient(135deg,#2a0d4a,#180830)",
     },
     {
-      title:"MEMBER KIT NUMBER",
-      sub:"Your exclusive squad number",
-      emoji:"🏆",
+      title:"VOTE IN CLUB DECISIONS",
+      sub:"Have your say in club matters",
+      emoji:"📢",
+      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
+    },
+    {
+      title:"VIP MATCH-DAY EXPERIENCE",
+      sub:"Premium hospitality access",
+      emoji:"👑",
       bg:"linear-gradient(135deg,#3a1a00,#1a0d00)",
     },
   ]
+
+  const globalFanBenefits=[
+    {
+      title:"5% OFF OFFICIAL STORE",
+      sub:"Save on all merch & kits",
+      emoji:"🏷️",
+      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
+    },
+    {
+      title:"10% OFF MATCH-DAY TICKETS",
+      sub:"Discount on every match",
+      emoji:"🎟️",
+      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
+    },
+    {
+      title:"EARLY TICKET ACCESS (48HR)",
+      sub:"Exclusive 48hr pre-sale window",
+      emoji:"⚡",
+      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
+    },
+    {
+      title:"EXCLUSIVE MEMBER KIT NUMBER",
+      sub:"Your personal squad number",
+      emoji:"🔢",
+      bg:"linear-gradient(135deg,#3a1a00,#1a0d00)",
+    },
+    {
+      title:"PRIORITY SQUAD UPDATES",
+      sub:"News before anyone else",
+      emoji:"📊",
+      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
+    },
+  ]
+
+  const freeBenefits=[
+    {
+      title:"CLUB NEWS & MATCH UPDATES",
+      sub:"Stay up to date",
+      emoji:"📰",
+      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
+    },
+    {
+      title:"FIXTURES & STANDINGS",
+      sub:"Full schedule & league table",
+      emoji:"📅",
+      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
+    },
+    {
+      title:"CLIPS & HIGHLIGHTS",
+      sub:"Watch match highlights",
+      emoji:"🎬",
+      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
+    },
+    {
+      title:"EARLY STORE NOTIFICATIONS",
+      sub:"First to know about new drops",
+      emoji:"🛒",
+      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
+    },
+  ]
+
+  // Pick benefits based on member tier
+  const tier = profile?.tier
+  const benefits =
+    tier === "honey_badger" ? honeyBadgerBenefits :
+    tier === "global_fan"   ? globalFanBenefits :
+    freeBenefits
 
   const settings=[
     {icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z", label:"Personal Information", action:null},
@@ -67,7 +149,13 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
 
   const displayName=(profile?.full_name||session.user.email?.split("@")[0]||"FAN").toUpperCase()
   const initials=displayName.split(" ").map(w=>w[0]).join("").slice(0,2)
-  const isMember=profile?.is_member
+  const isMember = tier === "honey_badger" || tier === "global_fan"
+  const isHoneyBadger = tier === "honey_badger"
+
+  const tierLabel =
+    tier === "honey_badger" ? "🦡 HONEY BADGER MEMBER" :
+    tier === "global_fan"   ? "🌍 GLOBAL FAN MEMBER" :
+    "FREE FAN"
 
   return (
     <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch",
@@ -117,7 +205,7 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
             fontFamily:"'Barlow Condensed',sans-serif",
             letterSpacing:"0.12em",
           }}>
-            {isMember?"🦡 HONEY BADGER MEMBER":"FREE FAN"}
+            {tierLabel}
           </div>
         </div>
 
@@ -161,7 +249,7 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
                 fontSize:16,color:NAVY}}>UPGRADE TO HONEY BADGER</div>
               <div style={{fontSize:12,color:"rgba(13,27,62,0.7)",marginTop:1}}>
-                P20/month or P200/year · Save 17%
+                P500/year · Save P100
               </div>
             </div>
             <div style={{background:NAVY,borderRadius:8,padding:"6px 14px",
@@ -171,44 +259,76 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
         </div>
       )}
 
-      {/* ── BENEFITS (members only) ── */}
+      {/* ── DIGITAL MEMBERSHIP CARD (members only) ── */}
       {isMember&&(
-        <div style={{padding:"16px 14px 4px"}}>
-          <div style={{display:"flex",justifyContent:"space-between",
-            alignItems:"center",marginBottom:10}}>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>BENEFITS</div>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
-              fontSize:12,color:NAVY,cursor:"pointer"}}>See all</span>
+        <div style={{margin:"16px 14px 0"}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em",marginBottom:10}}>
+            MEMBERSHIP CARD
           </div>
-          <div style={{display:"flex",flexDirection:"column",gap:10}}>
-            {benefits.map((b,i)=>(
-              <div key={i} style={{
-                display:"flex",alignItems:"center",gap:12,
-                background:WHITE,borderRadius:14,overflow:"hidden",
-                boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
-              }}>
-                {/* Coloured icon tile */}
-                <div style={{
-                  width:60,height:60,flexShrink:0,
-                  background:b.bg,
-                  display:"flex",alignItems:"center",justifyContent:"center",
-                  fontSize:24,
-                }}>
-                  {b.emoji}
-                </div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-                    fontSize:"clamp(12px,3.5vw,14px)",color:NAVY}}>{b.title}</div>
-                  <div style={{fontSize:12,color:MGRAY,marginTop:2}}>{b.sub}</div>
-                </div>
-                <div style={{paddingRight:14,color:"#ccc",fontSize:20,
-                  fontWeight:300,flexShrink:0}}>···</div>
-              </div>
-            ))}
-          </div>
+          <DigitalMembershipCard
+            memberId={session.user.id}
+            clubName="VILLAREAL FC"
+            season="2026/27"
+          />
         </div>
       )}
+
+      {/* ── BENEFITS ── */}
+      <div style={{padding:"16px 14px 4px"}}>
+        <div style={{display:"flex",justifyContent:"space-between",
+          alignItems:"center",marginBottom:10}}>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+            fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>BENEFITS</div>
+          {isMember&&(
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+              fontSize:12,color:NAVY,cursor:"pointer"}}>See all</span>
+          )}
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {benefits.map((b,i)=>(
+            <div key={i} style={{
+              display:"flex",alignItems:"center",gap:12,
+              background:WHITE,borderRadius:14,overflow:"hidden",
+              boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
+            }}>
+              {/* Coloured icon tile */}
+              <div style={{
+                width:60,height:60,flexShrink:0,
+                background:b.bg,
+                display:"flex",alignItems:"center",justifyContent:"center",
+                fontSize:24,
+              }}>
+                {b.emoji}
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                  fontSize:"clamp(12px,3.5vw,14px)",color:NAVY}}>{b.title}</div>
+                <div style={{fontSize:12,color:MGRAY,marginTop:2}}>{b.sub}</div>
+              </div>
+              <div style={{paddingRight:14,color:"#ccc",fontSize:20,
+                fontWeight:300,flexShrink:0}}>···</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Upgrade nudge inside benefits for free users */}
+        {!isMember&&(
+          <button onClick={openMembership} style={{
+            width:"100%",marginTop:12,padding:"12px 16px",
+            background:"transparent",
+            border:`1.5px dashed ${GOLD}`,
+            borderRadius:14,cursor:"pointer",
+            display:"flex",alignItems:"center",justifyContent:"center",gap:8,
+            WebkitTapHighlightColor:"transparent",
+          }}>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+              fontSize:13,color:GOLD,letterSpacing:"0.08em"}}>
+              🔒 UNLOCK MORE BENEFITS — JOIN NOW
+            </span>
+          </button>
+        )}
+      </div>
 
       {/* ── ACCOUNT INFO ── */}
       <div style={{margin:"16px 14px 0",background:WHITE,borderRadius:14,
@@ -229,7 +349,11 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
           <div style={{fontSize:11,color:MGRAY,fontFamily:"'Barlow Condensed',sans-serif",
             fontWeight:600,letterSpacing:"0.06em"}}>MEMBERSHIP</div>
           <div style={{fontSize:14,color:isMember?GREEN:MGRAY,marginTop:3,fontWeight:600}}>
-            {isMember?"🦡 Honey Badger Premium — Active":"Free Fan · Upgrade to Honey Badger"}
+            {isHoneyBadger
+              ? "🦡 Honey Badger — Active"
+              : isMember
+              ? "🌍 Global Fan — Active"
+              : "Free Fan · Upgrade to unlock more"}
           </div>
         </div>
       </div>
@@ -248,14 +372,13 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
             padding:"14px 14px",minHeight:52,
             borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
             cursor:s.action?"pointer":"default",
-            background:s.action?"transparent":"transparent",
             WebkitTapHighlightColor:"transparent"}}>
             <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
               background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <Ico d={s.icon} stroke={NAVY} sw={1.6} size={18}/>
             </div>
             <span style={{flex:1,fontSize:14,
-              color:s.action?NAVY:NAVY,
+              color:NAVY,
               fontWeight:s.action?700:500}}>{s.label}</span>
             <span style={{color:s.action?GOLD2:"#ccc",fontSize:18,fontWeight:s.action?700:400}}>›</span>
           </div>
@@ -299,7 +422,5 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
     </div>
   )
 }
-
-
 
 export default ProfileScreen
