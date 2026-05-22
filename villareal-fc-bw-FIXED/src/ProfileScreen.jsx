@@ -1,131 +1,58 @@
-import React, { useState, useEffect, useRef } from "react"
+import React, { useState } from "react"
 import { supabase } from "./supabaseClient"
 import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Ico, Btn } from "./constants"
 import DigitalMembershipCard from "./DigitalMembershipCard"
+import AdminPanel from "./AdminPanel"
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   PROFILE
+   PROFILE SCREEN
 ══════════════════════════════════════════════════════════════════════════════ */
 const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
 
-  // ── Benefits pulled from actual tier perks ──────────────────────────────────
+  const [showAdmin, setShowAdmin] = useState(false)
+
+  // ── Benefits by tier ───────────────────────────────────────────────────────
   const honeyBadgerBenefits=[
-    {
-      title:"FREE ENTRY TO HOME MATCHES",
-      sub:"Walk in free every home game",
-      emoji:"🏟️",
-      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
-    },
-    {
-      title:"20% OFF MATCH-DAY TICKETS",
-      sub:"Biggest discount on all match tickets",
-      emoji:"🎟️",
-      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
-    },
-    {
-      title:"10% OFF OFFICIAL STORE",
-      sub:"Save on all merch & kits",
-      emoji:"👕",
-      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
-    },
-    {
-      title:"DIGITAL MEMBERSHIP CARD",
-      sub:"Your official Honey Badger card",
-      emoji:"💳",
-      bg:"linear-gradient(135deg,#7a6000,#3a2e00)",
-    },
-    {
-      title:"EXCLUSIVE MEMBER EVENTS",
-      sub:"Invites to member-only events",
-      emoji:"🎉",
-      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
-    },
-    {
-      title:"VOTE IN CLUB DECISIONS",
-      sub:"Have your say in club matters",
-      emoji:"📢",
-      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
-    },
-    {
-      title:"VIP MATCH-DAY EXPERIENCE",
-      sub:"Premium hospitality access",
-      emoji:"👑",
-      bg:"linear-gradient(135deg,#3a1a00,#1a0d00)",
-    },
+    { title:"FREE ENTRY TO HOME MATCHES",  sub:"Walk in free every home game",          emoji:"🏟️", bg:"linear-gradient(135deg,#1a3a6e,#0d2244)" },
+    { title:"20% OFF MATCH-DAY TICKETS",   sub:"Biggest discount on all match tickets", emoji:"🎟️", bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)" },
+    { title:"10% OFF OFFICIAL STORE",      sub:"Save on all merch & kits",              emoji:"👕", bg:"linear-gradient(135deg,#4a2000,#2a1200)" },
+    { title:"DIGITAL MEMBERSHIP CARD",     sub:"Your official Honey Badger card",       emoji:"💳", bg:"linear-gradient(135deg,#7a6000,#3a2e00)" },
+    { title:"EXCLUSIVE MEMBER EVENTS",     sub:"Invites to member-only events",         emoji:"🎉", bg:"linear-gradient(135deg,#2a0d4a,#180830)" },
+    { title:"VOTE IN CLUB DECISIONS",      sub:"Have your say in club matters",         emoji:"📢", bg:"linear-gradient(135deg,#1a3a6e,#0d2244)" },
+    { title:"VIP MATCH-DAY EXPERIENCE",    sub:"Premium hospitality access",            emoji:"👑", bg:"linear-gradient(135deg,#3a1a00,#1a0d00)" },
   ]
 
   const globalFanBenefits=[
-    {
-      title:"5% OFF OFFICIAL STORE",
-      sub:"Save on all merch & kits",
-      emoji:"🏷️",
-      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
-    },
-    {
-      title:"10% OFF MATCH-DAY TICKETS",
-      sub:"Discount on every match",
-      emoji:"🎟️",
-      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
-    },
-    {
-      title:"EARLY TICKET ACCESS (48HR)",
-      sub:"Exclusive 48hr pre-sale window",
-      emoji:"⚡",
-      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
-    },
-    {
-      title:"EXCLUSIVE MEMBER KIT NUMBER",
-      sub:"Your personal squad number",
-      emoji:"🔢",
-      bg:"linear-gradient(135deg,#3a1a00,#1a0d00)",
-    },
-    {
-      title:"PRIORITY SQUAD UPDATES",
-      sub:"News before anyone else",
-      emoji:"📊",
-      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
-    },
+    { title:"5% OFF OFFICIAL STORE",        sub:"Save on all merch & kits",             emoji:"🏷️", bg:"linear-gradient(135deg,#4a2000,#2a1200)" },
+    { title:"10% OFF MATCH-DAY TICKETS",    sub:"Discount on every match",              emoji:"🎟️", bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)" },
+    { title:"EARLY TICKET ACCESS (48HR)",   sub:"Exclusive 48hr pre-sale window",       emoji:"⚡", bg:"linear-gradient(135deg,#1a3a6e,#0d2244)" },
+    { title:"EXCLUSIVE MEMBER KIT NUMBER",  sub:"Your personal squad number",           emoji:"🔢", bg:"linear-gradient(135deg,#3a1a00,#1a0d00)" },
+    { title:"PRIORITY SQUAD UPDATES",       sub:"News before anyone else",              emoji:"📊", bg:"linear-gradient(135deg,#2a0d4a,#180830)" },
   ]
 
   const freeBenefits=[
-    {
-      title:"CLUB NEWS & MATCH UPDATES",
-      sub:"Stay up to date",
-      emoji:"📰",
-      bg:"linear-gradient(135deg,#1a3a6e,#0d2244)",
-    },
-    {
-      title:"FIXTURES & STANDINGS",
-      sub:"Full schedule & league table",
-      emoji:"📅",
-      bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)",
-    },
-    {
-      title:"CLIPS & HIGHLIGHTS",
-      sub:"Watch match highlights",
-      emoji:"🎬",
-      bg:"linear-gradient(135deg,#2a0d4a,#180830)",
-    },
-    {
-      title:"EARLY STORE NOTIFICATIONS",
-      sub:"First to know about new drops",
-      emoji:"🛒",
-      bg:"linear-gradient(135deg,#4a2000,#2a1200)",
-    },
+    { title:"CLUB NEWS & MATCH UPDATES",    sub:"Stay up to date",                      emoji:"📰", bg:"linear-gradient(135deg,#1a3a6e,#0d2244)" },
+    { title:"FIXTURES & STANDINGS",         sub:"Full schedule & league table",         emoji:"📅", bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)" },
+    { title:"CLIPS & HIGHLIGHTS",           sub:"Watch match highlights",               emoji:"🎬", bg:"linear-gradient(135deg,#2a0d4a,#180830)" },
+    { title:"EARLY STORE NOTIFICATIONS",    sub:"First to know about new drops",        emoji:"🛒", bg:"linear-gradient(135deg,#4a2000,#2a1200)" },
   ]
 
-  // Pick benefits based on member tier
-  const tier = profile?.tier
+  const tier     = profile?.tier
   const benefits =
     tier === "honey_badger" ? honeyBadgerBenefits :
-    tier === "global_fan"   ? globalFanBenefits :
+    tier === "global_fan"   ? globalFanBenefits   :
     freeBenefits
 
   const settings=[
-    {icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z", label:"Personal Information", action:null},
-    {icon:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0", label:"Notification Settings", action:null},
-    {icon:"M12 2a10 10 0 100 20A10 10 0 0012 2z M8 12h8 M12 8v8", label:"Cookie Settings", action:null},
-    {icon:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z", label:"Are you a member? →", action:openMembership},
+    { icon:"M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2 M12 11a4 4 0 100-8 4 4 0 000 8z",  label:"Personal Information",   action:null },
+    { icon:"M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9 M13.73 21a2 2 0 01-3.46 0",       label:"Notification Settings",  action:null },
+    { icon:"M12 2a10 10 0 100 20A10 10 0 0012 2z M8 12h8 M12 8v8",                        label:"Cookie Settings",        action:null },
+    { icon:"M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z",                               label:"Are you a member? →",    action:openMembership },
+    ...(profile?.role==="admin" ? [{
+      icon:"M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+      label:"⚙️ Admin Panel",
+      action:()=>setShowAdmin(true),
+    }] : []),
   ]
 
   /* ── NOT LOGGED IN ── */
@@ -149,29 +76,25 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
 
   const displayName=(profile?.full_name||session.user.email?.split("@")[0]||"FAN").toUpperCase()
   const initials=displayName.split(" ").map(w=>w[0]).join("").slice(0,2)
-  const isMember = tier === "honey_badger" || tier === "global_fan"
-  const isHoneyBadger = tier === "honey_badger"
-
-  const tierLabel =
-    tier === "honey_badger" ? "🦡 HONEY BADGER MEMBER" :
-    tier === "global_fan"   ? "🌍 GLOBAL FAN MEMBER" :
+  const isMember    = tier==="honey_badger"||tier==="global_fan"
+  const isHoneyBadger = tier==="honey_badger"
+  const tierLabel   =
+    tier==="honey_badger" ? "🦡 HONEY BADGER MEMBER" :
+    tier==="global_fan"   ? "🌍 GLOBAL FAN MEMBER"   :
     "FREE FAN"
 
   return (
-    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",WebkitOverflowScrolling:"touch",
-      scrollBehavior:"smooth"}}>
+    <div style={{flex:1,overflowY:"auto",background:"#f5f6fa",
+      WebkitOverflowScrolling:"touch",scrollBehavior:"smooth"}}>
 
-      {/* ── HERO CARD ── */}
+      {/* ── HERO ── */}
       <div style={{
         background:`linear-gradient(160deg,${NAVY} 0%,#1a3060 60%,#0d2244 100%)`,
         padding:"28px 20px 0",position:"relative",overflow:"hidden",
       }}>
-        {/* Watermark */}
         <div style={{position:"absolute",right:-30,top:-30,opacity:0.06}}>
           <Logo size={200}/>
         </div>
-
-        {/* Avatar */}
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",marginBottom:16}}>
           <div style={{
             width:88,height:88,borderRadius:"50%",
@@ -183,47 +106,37 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
           }}>
             <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
               fontSize:32,color:NAVY}}>{initials}</span>
-            {/* Online dot */}
             <div style={{position:"absolute",bottom:4,right:4,width:14,height:14,
               borderRadius:"50%",background:"#27AE60",border:`2px solid ${NAVY}`}}/>
           </div>
-
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
             fontSize:"clamp(22px,6vw,28px)",color:WHITE,letterSpacing:"0.04em",
             textAlign:"center",lineHeight:1}}>
             {displayName}
           </div>
-
-          {/* Member badge */}
           <div style={{
-            marginTop:8,
-            display:"inline-flex",alignItems:"center",gap:6,
+            marginTop:8,display:"inline-flex",alignItems:"center",gap:6,
             background:isMember?GOLD:"rgba(255,255,255,0.15)",
             color:isMember?NAVY:WHITE,
             padding:"5px 16px",borderRadius:20,
             fontSize:11,fontWeight:900,
-            fontFamily:"'Barlow Condensed',sans-serif",
-            letterSpacing:"0.12em",
+            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:"0.12em",
           }}>
             {tierLabel}
           </div>
         </div>
-
-        {/* Stats row */}
         <div style={{
           display:"grid",gridTemplateColumns:"1fr 1fr 1fr",
           background:"rgba(255,255,255,0.07)",
-          borderRadius:"12px 12px 0 0",
-          padding:"14px 0",marginTop:4,
+          borderRadius:"12px 12px 0 0",padding:"14px 0",marginTop:4,
         }}>
           {[
-            {label:"SEASON",    value:"2026/27"},
-            {label:"STATUS",    value:isMember?"MEMBER":"FAN"},
-            {label:"DIVISION",  value:"BRFA D1"},
+            {label:"SEASON",   value:"2026/27"},
+            {label:"STATUS",   value:isMember?"MEMBER":"FAN"},
+            {label:"DIVISION", value:"BRFA D1"},
           ].map((s,i)=>(
             <div key={i} style={{textAlign:"center",
-              borderRight:i<2?`1px solid rgba(255,255,255,0.1)`:"none",
-              padding:"0 8px"}}>
+              borderRight:i<2?`1px solid rgba(255,255,255,0.1)`:"none",padding:"0 8px"}}>
               <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
                 fontSize:"clamp(13px,4vw,16px)",color:GOLD,lineHeight:1}}>{s.value}</div>
               <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",
@@ -234,7 +147,7 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
         </div>
       </div>
 
-      {/* ── UPGRADE BANNER (non-members only) ── */}
+      {/* ── UPGRADE BANNER (free only) ── */}
       {!isMember&&(
         <div style={{margin:"12px 14px 0"}}>
           <button onClick={openMembership} style={{
@@ -292,12 +205,9 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
               background:WHITE,borderRadius:14,overflow:"hidden",
               boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
             }}>
-              {/* Coloured icon tile */}
               <div style={{
-                width:60,height:60,flexShrink:0,
-                background:b.bg,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:24,
+                width:60,height:60,flexShrink:0,background:b.bg,
+                display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,
               }}>
                 {b.emoji}
               </div>
@@ -306,18 +216,14 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
                   fontSize:"clamp(12px,3.5vw,14px)",color:NAVY}}>{b.title}</div>
                 <div style={{fontSize:12,color:MGRAY,marginTop:2}}>{b.sub}</div>
               </div>
-              <div style={{paddingRight:14,color:"#ccc",fontSize:20,
-                fontWeight:300,flexShrink:0}}>···</div>
+              <div style={{paddingRight:14,color:"#ccc",fontSize:20,fontWeight:300,flexShrink:0}}>···</div>
             </div>
           ))}
         </div>
-
-        {/* Upgrade nudge inside benefits for free users */}
         {!isMember&&(
           <button onClick={openMembership} style={{
             width:"100%",marginTop:12,padding:"12px 16px",
-            background:"transparent",
-            border:`1.5px dashed ${GOLD}`,
+            background:"transparent",border:`1.5px dashed ${GOLD}`,
             borderRadius:14,cursor:"pointer",
             display:"flex",alignItems:"center",justifyContent:"center",gap:8,
             WebkitTapHighlightColor:"transparent",
@@ -330,11 +236,10 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
         )}
       </div>
 
-      {/* ── ACCOUNT INFO ── */}
+      {/* ── ACCOUNT ── */}
       <div style={{margin:"16px 14px 0",background:WHITE,borderRadius:14,
         overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,0.06)"}}>
-        <div style={{padding:"10px 14px 6px",
-          borderBottom:`1px solid #f0f0f0`}}>
+        <div style={{padding:"10px 14px 6px",borderBottom:`1px solid #f0f0f0`}}>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
             fontSize:11,color:MGRAY,letterSpacing:"0.1em"}}>ACCOUNT</div>
         </div>
@@ -369,18 +274,18 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
           <div key={i}
             onClick={()=>{ if(s.action) s.action() }}
             style={{display:"flex",alignItems:"center",gap:14,
-            padding:"14px 14px",minHeight:52,
-            borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
-            cursor:s.action?"pointer":"default",
-            WebkitTapHighlightColor:"transparent"}}>
+              padding:"14px 14px",minHeight:52,
+              borderBottom:i<settings.length-1?`1px solid #f0f0f0`:"none",
+              cursor:s.action?"pointer":"default",
+              WebkitTapHighlightColor:"transparent"}}>
             <div style={{width:34,height:34,borderRadius:9,flexShrink:0,
               background:"#f0f0f0",display:"flex",alignItems:"center",justifyContent:"center"}}>
               <Ico d={s.icon} stroke={NAVY} sw={1.6} size={18}/>
             </div>
-            <span style={{flex:1,fontSize:14,
-              color:NAVY,
+            <span style={{flex:1,fontSize:14,color:NAVY,
               fontWeight:s.action?700:500}}>{s.label}</span>
-            <span style={{color:s.action?GOLD2:"#ccc",fontSize:18,fontWeight:s.action?700:400}}>›</span>
+            <span style={{color:s.action?GOLD2:"#ccc",fontSize:18,
+              fontWeight:s.action?700:400}}>›</span>
           </div>
         ))}
       </div>
@@ -406,7 +311,7 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
         ))}
       </div>
 
-      {/* ── APP VERSION + LOGOUT ── */}
+      {/* ── LOGOUT ── */}
       <div style={{padding:"24px 0 16px",textAlign:"center"}}>
         <span onClick={onLogout} style={{color:RED,fontWeight:700,fontSize:15,
           fontFamily:"'Barlow Condensed',sans-serif",cursor:"pointer",
@@ -418,6 +323,9 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
           APP VERSION 1.0.0
         </div>
       </div>
+
+      {/* ── ADMIN PANEL (admin only) ── */}
+      {showAdmin && <AdminPanel onClose={()=>setShowAdmin(false)} />}
 
     </div>
   )
