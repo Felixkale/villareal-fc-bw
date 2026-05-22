@@ -411,34 +411,28 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
         </div>
       </div>
 
-      {/* ══ QUICK ACTIONS — horizontal scroll ══ */}
-      <div style={{padding:"12px 0 0",overflowX:"auto",WebkitOverflowScrolling:"touch",
-        scrollbarWidth:"none"}}>
-        <div style={{display:"flex",gap:10,padding:"0 12px",
-          width:"max-content"}}>
+      {/* ══ QUICK ACTIONS — compact horizontal scroll ══ */}
+      <div style={{overflowX:"auto",WebkitOverflowScrolling:"touch",
+        scrollbarWidth:"none",padding:"10px 12px 0"}}>
+        <div style={{display:"flex",gap:8,width:"max-content"}}>
           {[
-            {icon:"🎟", label:"TICKETS", fn:()=>setActiveTab&&setActiveTab("store"),
-              bg:`linear-gradient(135deg,${NAVY},#1a3060)`, fg:WHITE},
-            {icon:"👕", label:"SHOP",    fn:()=>setActiveTab&&setActiveTab("store"),
-              bg:`linear-gradient(135deg,${GOLD2},${GOLD})`, fg:NAVY},
-            {icon:"❤️", label:"DONATE",  fn:()=>setShowDonate(true),
-              bg:`linear-gradient(135deg,${RED},#9b1c1c)`, fg:WHITE},
-            {icon:"📰", label:"NEWS",    fn:null,
-              bg:"#e8e8e8", fg:NAVY},
-            {icon:"🦡", label:"MEMBERS", fn:openMembership,
-              bg:`linear-gradient(135deg,${GREEN},#15803d)`, fg:WHITE},
+            {icon:"🎟",label:"TICKETS", fn:()=>setActiveTab&&setActiveTab("store")},
+            {icon:"👕",label:"SHOP",    fn:()=>setActiveTab&&setActiveTab("store")},
+            {icon:"❤️",label:"DONATE",  fn:()=>setShowDonate(true)},
+            {icon:"📰",label:"NEWS",    fn:null},
+            {icon:"🦡",label:"MEMBERS", fn:openMembership},
           ].map(item=>(
             <button key={item.label} onClick={item.fn||undefined}
-              style={{flexShrink:0,display:"flex",alignItems:"center",
-                justifyContent:"center",gap:8,
-                padding:"12px 18px",minHeight:50,minWidth:110,
-                background:item.bg,border:"none",borderRadius:14,
-                cursor:item.fn?"pointer":"default",
+              style={{flexShrink:0,display:"flex",flexDirection:"column",
+                alignItems:"center",gap:3,
+                padding:"7px 10px",minWidth:54,
+                background:WHITE,border:"1.5px solid #eee",
+                borderRadius:10,cursor:item.fn?"pointer":"default",
                 WebkitTapHighlightColor:"transparent",
-                boxShadow:item.fn?"0 2px 8px rgba(0,0,0,0.18)":"none"}}>
-              <span style={{fontSize:20}}>{item.icon}</span>
-              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:13,color:item.fg,letterSpacing:"0.05em",
+                boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}>
+              <span style={{fontSize:16}}>{item.icon}</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
+                fontSize:8,color:NAVY,letterSpacing:"0.05em",
                 whiteSpace:"nowrap"}}>{item.label}</span>
             </button>
           ))}
