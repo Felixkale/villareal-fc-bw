@@ -315,7 +315,8 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
           </div>
         </div>
         <div style={{fontSize:"clamp(10px,2.5vw,11px)",color:"rgba(255,255,255,0.6)",
-          marginBottom:10,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+          marginBottom:10,display:"flex",gap:8,flexWrap:"wrap",
+          alignItems:"center",justifyContent:"center",textAlign:"center"}}>
           <span>📅 Sat 23 May</span>
           <span>⏰ 13:30</span>
           <span>📍 Falcon Ground</span>
