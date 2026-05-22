@@ -76,7 +76,7 @@ export default function App(){
       onSuccess={()=>{setShowAuth(false);setActiveTab("profile")}}
       onGuest={()=>setShowAuth(false)}/>
     switch(activeTab){
-      case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)}/>
+      case "foryou":   return <ForYouScreen userEmail={session?.user?.email} goToAuth={goToAuth} session={session} openMembership={()=>setShowMembership(true)} setActiveTab={setActiveTab}/>
       case "calendar": return <CalendarScreen/>
       case "clips":    return <ClipsScreen/>
       case "store":    return <StoreScreen goToAuth={goToAuth} fixtures={fixtures} openMembership={()=>setShowMembership(true)} session={session} profile={profile}/>
