@@ -16,10 +16,10 @@ const CalendarScreen = () => {
       .then(({data})=>{ if(data) setFixtures(data) })
   },[])
 
-  // Load player photos from /players/ public folder
+  // Load player photos from public/players/ folder
   useEffect(()=>{
     const map = {}
-    SQUAD.forEach(p => { map[p.id] = `/${p.id}.jpg` })
+    SQUAD.forEach(p => { map[p.id] = `/players/${p.id}.jpg` })
     setPlayerPhotos(map)
   },[])
 
