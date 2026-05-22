@@ -180,8 +180,86 @@ const CalendarScreen = () => {
 
   // Photos loaded from Supabase Storage (uploaded via admin panel)
 
-  const PlayersTab=()=>(
-    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa"}}>
+  const PlayersTab=()=>{
+  const [selPlayer, setSelPlayer] = useState(null)
+
+  return (
+    <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",background:"#f5f6fa",
+      position:"relative"}}>
+
+      {/* ── PLAYER POPUP ── */}
+      {selPlayer&&(
+        <div onClick={()=>setSelPlayer(null)}
+          style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",
+            zIndex:500,display:"flex",alignItems:"center",justifyContent:"center",
+            padding:"20px"}}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:WHITE,borderRadius:20,overflow:"hidden",
+              width:"100%",maxWidth:340,
+              boxShadow:"0 20px 60px rgba(0,0,0,0.5)"}}>
+            {/* Photo */}
+            <div style={{height:300,background:`linear-gradient(180deg,#0a1428,${NAVY})`,
+              position:"relative",overflow:"hidden"}}>
+              {playerPhotos[selPlayer.id]?(
+                <img src={playerPhotos[selPlayer.id]} alt={selPlayer.name}
+                  style={{width:"100%",height:"100%",objectFit:"cover",
+                    objectPosition:"center 20%"}}
+                  onError={e=>{ e.target.style.display="none" }}/>
+              ):(
+                <div style={{height:"100%",display:"flex",alignItems:"center",
+                  justifyContent:"center"}}>
+                  <span style={{fontFamily:"'Barlow Condensed',sans-serif",
+                    fontWeight:900,fontSize:72,color:GOLD,opacity:0.5}}>
+                    {selPlayer.name.split(" ").map(w=>w[0]).join("").slice(0,2)}
+                  </span>
+                </div>
+              )}
+              {/* Gradient overlay */}
+              <div style={{position:"absolute",bottom:0,left:0,right:0,height:"40%",
+                background:"linear-gradient(to top,rgba(0,0,0,0.8),transparent)"}}/>
+              {/* Close button */}
+              <button onClick={()=>setSelPlayer(null)}
+                style={{position:"absolute",top:12,right:12,background:"rgba(0,0,0,0.5)",
+                  border:"none",borderRadius:"50%",width:32,height:32,cursor:"pointer",
+                  color:WHITE,fontSize:16,display:"flex",alignItems:"center",
+                  justifyContent:"center"}}>✕</button>
+            </div>
+            {/* Info */}
+            <div style={{padding:"16px"}}>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:400,
+                fontSize:13,color:MGRAY,lineHeight:1}}>
+                {selPlayer.name.split(" ").slice(0,-1).join(" ")}
+              </div>
+              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:26,color:NAVY,lineHeight:1.1,marginBottom:10}}>
+                {selPlayer.name.split(" ").slice(-1)[0].toUpperCase()}
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                {[
+                  ["TEAM",  selPlayer.team==="FIRST TEAM"?"1ST TEAM":selPlayer.team],
+                  ["AGE",   getAge(selPlayer.dob)+" yrs"],
+                  ["BFA ID",selPlayer.id],
+                ].map(([label,val])=>(
+                  <div key={label} style={{background:LGRAY,borderRadius:8,
+                    padding:"8px",textAlign:"center"}}>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                      fontSize:9,color:MGRAY,letterSpacing:"0.06em",marginBottom:3}}>
+                      {label}
+                    </div>
+                    <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                      fontSize:13,color:NAVY,overflow:"hidden",textOverflow:"ellipsis",
+                      whiteSpace:"nowrap"}}>{val}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{marginTop:12,fontSize:11,color:MGRAY,textAlign:"center"}}>
+                {new Date(selPlayer.dob).toLocaleDateString("en-GB",
+                  {day:"numeric",month:"long",year:"numeric"})}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{
         display:"grid",
@@ -197,13 +275,15 @@ const CalendarScreen = () => {
           const lastName  = nameParts.slice(-1)[0]
 
           return (
-            <div key={p.id} style={{
-              borderRadius:14,overflow:"hidden",
-              background:WHITE,
-              boxShadow:"0 2px 10px rgba(0,0,0,0.09)",
-              border:`1.5px solid ${hasPhoto?"#e5e7eb":"#e5e7eb"}`,
-              WebkitTapHighlightColor:"transparent",
-            }}>
+            <div key={p.id}
+              onClick={()=>setSelPlayer(p)}
+              style={{
+                borderRadius:14,overflow:"hidden",
+                background:WHITE,cursor:"pointer",
+                boxShadow:"0 2px 10px rgba(0,0,0,0.09)",
+                border:`1.5px solid ${hasPhoto?"#e5e7eb":"#e5e7eb"}`,
+                WebkitTapHighlightColor:"transparent",
+              }}>
 
               {/* ── PHOTO AREA — taller, face-centred ── */}
               <div style={{
@@ -295,6 +375,7 @@ const CalendarScreen = () => {
       </div>
     </div>
   )
+}
 
 
   return (
