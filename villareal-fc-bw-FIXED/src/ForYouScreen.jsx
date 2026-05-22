@@ -33,8 +33,8 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
       .then(({data})=>{ if(data) setFixtures(data) })
   },[])
 
-  const nextFixture = fixtures.find(f=>!f.result && new Date(f.match_date+'T12:00:00') >= new Date())
-    || { match_date:"2026-05-23", kick_off:"13:30", opponent:"Golden Birds", venue:"HOME" }
+  // Next fixture — hardcoded (run fixture SQL in Supabase to sync DB)
+  const nextFixture = { match_date:"2026-05-23", kick_off:"13:30", opponent:"Golden Birds", venue:"HOME" }
 
   useEffect(()=>{
     const tick = () => {
@@ -70,12 +70,8 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
     </div>
   )
 
-  const roadData = fixtures.filter(f=>f.result).slice(-5).length > 0
-    ? fixtures.filter(f=>f.result).slice(-5).map(f=>({
-        opp:f.opponent, score:`${f.score_us}-${f.score_them}`,
-        result:f.result, venue:f.venue
-      }))
-    : ROAD_FALLBACK
+  // Use hardcoded road data (matches actual season results)
+  const roadData = ROAD_FALLBACK
 
   const oppLogo = OPP_LOGOS[nextFixture?.opponent]
 
