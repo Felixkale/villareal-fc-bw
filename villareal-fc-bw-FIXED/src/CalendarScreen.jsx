@@ -204,7 +204,6 @@ const CalendarScreen = () => {
           const age = getAge(p.dob)
           const initials = p.name.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase()
           const hasPhoto = !!playerPhotos[p.id]
-          const isUploading = uploading === p.id
           const firstName = p.name.split(" ")[0]
           const lastName  = p.name.split(" ").slice(1).join(" ") || p.name.split(" ")[0]
 
@@ -216,7 +215,7 @@ const CalendarScreen = () => {
                 boxShadow:"0 2px 8px rgba(0,0,0,0.08)",
                 border:`1.5px solid ${hasPhoto?GREEN:"#e5e7eb"}`,
                 WebkitTapHighlightColor:"transparent",
-                opacity:isUploading?0.7:1,
+                opacity:1,
                 transition:"opacity 0.15s",
               }}>
 
@@ -243,18 +242,16 @@ const CalendarScreen = () => {
                     alignItems:"center",gap:4}}>
                     <span style={{fontFamily:"'Barlow Condensed',sans-serif",
                       fontWeight:900,fontSize:26,color:GOLD,lineHeight:1}}>{initials}</span>
-                    <span style={{fontSize:14,opacity:0.6}}>📷</span>
                   </div>
                 )}
 
-                {/* Status badge top-left */}
-                <div style={{position:"absolute",top:5,left:5,
-                  background:hasPhoto?GREEN:"rgba(0,0,0,0.45)",
-                  borderRadius:4,padding:"2px 5px",
-                  fontSize:8,color:WHITE,fontWeight:700,
-                  fontFamily:"'Barlow Condensed',sans-serif"}}>
-                  {isUploading?"⏳":hasPhoto?"✓ PHOTO":"📷 ADD"}
-                </div>
+                {/* Status badge top-left — only show if has photo */}
+                {hasPhoto&&(
+                  <div style={{position:"absolute",top:5,left:5,
+                    background:GREEN,borderRadius:4,padding:"2px 5px",
+                    fontSize:8,color:WHITE,fontWeight:700,
+                    fontFamily:"'Barlow Condensed',sans-serif"}}>✓</div>
+                )}
 
                 {/* Team badge top-right */}
                 <div style={{position:"absolute",top:5,right:5,
