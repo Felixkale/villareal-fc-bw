@@ -99,7 +99,7 @@ function QR({ accent }) {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function fmtDate(iso) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-GB", { month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
 // Short readable ID from UUID — take first 8 chars uppercased
