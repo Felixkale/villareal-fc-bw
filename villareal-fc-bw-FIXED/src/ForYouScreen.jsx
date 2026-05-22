@@ -27,13 +27,13 @@ const STORIES = [
     caption:"Tough away day vs The White Machine. We fight on. 💪 #90Stars" },
   { id:"lu",  logo:LU_LOGO,  opp:"Letlhakane Utd",    score:"2-0", result:"W", venue:"Away",
     photo:PHOTO_DUO2,
-    caption:"2-0 away win vs Letlhakane United! The boys delivered. 🔥 #HoneyBadgers" },
+    caption:"2-0 away win! Onneile \"Nkaoza\" Lefetamang scored a brace to down Letlhakane United. 🔥 #HoneyBadgers" },
   { id:"mm",  logo:MM_LOGO,  opp:"Mmatshumo Classic", score:"0-2", result:"L", venue:"Away",
     photo:PHOTO_DUO1,
     caption:"Tough result away at Mmatshumo. We learn and bounce back. 💛 #90Stars" },
   { id:"sb",  logo:SB_LOGO,  opp:"Stone Breakers",    score:"1-0", result:"W", venue:"Away",
     photo:PHOTO_GK,
-    caption:"MASSIVE 1-0 WIN vs Stone Breakers! Casemiro with the goal, Lenyatso unbeatable in goal! 🙌 #HoneyBadgers" },
+    caption:"1-0 WIN! Ditsaone \"Casemiro\" Gaeimelwe with the only goal. Bosenakitso Lenyatso saved 3 one-on-ones. Unreal! 🙌 #HoneyBadgers" },
   { id:"mb",  logo:MB_LOGO,  opp:"Mighty Birds",      score:"0-2", result:"L", venue:"Away",
     photo:PHOTO_NO17,
     caption:"Lost 0-2 away to Mighty Birds. Heads up, Golden Birds next! ⚽ #90Stars" },
@@ -46,31 +46,31 @@ const STORIES = [
 const LOCAL_NEWS = [
   {
     id:"n1", tag:"MATCH", date:"19 May 2026",
-    title:"Lenyatso Heroics Seal 1-0 Win vs Stone Breakers",
-    body:"Ditsaone \"Casemiro\" Gaeimelwe broke the deadlock with a clinical finish, but the real story was goalkeeper Bosenakitso Lenyatso who produced an exceptional display — saving 3 one-on-one situations to keep the Honey Badgers ahead.",
+    title:"Casemiro Goal & Lenyatso Heroics Seal 1-0 vs Stone Breakers",
+    body:"Ditsaone \"Casemiro\" Gaeimelwe broke the deadlock with a clinical finish to give 90 Stars the lead. But the real hero was goalkeeper Bosenakitso Lenyatso who produced an exceptional display — saving 3 one-on-one situations to preserve the clean sheet and send the Honey Badgers home with all 3 points.",
     photo: PHOTO_GK,
     photoCaption:"Lenyatso (GK) — 3 saves, 1 clean sheet",
   },
   {
     id:"n2", tag:"SQUAD", date:"02 May 2026",
     title:"The Honey Badgers Ready for Battle",
-    body:"The squad showed great spirit ahead of the away stretch. Training hard, playing harder. These boys represent the Boteti West with pride. 🦡",
+    body:"The squad showed great spirit ahead of the away stretch. Training hard, playing harder. These boys represent the Boteti with pride. 🦡",
     photo: PHOTO_DUO2,
-    photoCaption:"Ready for our last game of the season at Home",
+    photoCaption:"Ready for the away games",
   },
   {
     id:"n3", tag:"MATCH", date:"05 May 2026",
-    title:"90 Stars Demolish Letlhakane United 2-0 Away",
-    body:"A dominant display away from home. The Honey Badgers were clinical, with Nkaoza scoring brace to secure our 2-0 against Letlhakane United to secure us a win.",
+    title:"Onneile \"Nkaoza\" Fires Brace to Down Letlhakane United 2-0",
+    body:"Onneile \"Nkaoza\" Lefetamang was unstoppable away at Letlhakane United, scoring both goals in a commanding 2-0 win. The Honey Badgers were disciplined, clinical, and proved their quality on the road.",
     photo: PHOTO_DUO1,
     photoCaption:"Celebrating the Letlhakane win",
   },
   {
     id:"n4", tag:"SQUAD", date:"May 2026",
-    title:"Goalkeeper Bosena — Wall Between the Posts",
+    title:"Goalkeeper Mosweu — Wall Between the Posts",
     body:"The Pink Wall has been a key part of our season. Our keeper's performances have kept us in multiple matches. The number 1 is ready for Golden Birds.",
     photo: PHOTO_GK,
-    photoCaption:"Bosena ready with gloves on",
+    photoCaption:"Mosweu ready with gloves on",
   },
 ]
 
@@ -323,7 +323,8 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
             fontSize:9,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif"}}>HOME</span>
         </div>
         {countdown ? (
-          <div style={{display:"flex",gap:"clamp(6px,2vw,10px)",alignItems:"center"}}>
+          <div style={{display:"flex",gap:"clamp(6px,2vw,10px)",alignItems:"center",
+            justifyContent:"center"}}>
             <Box val={countdown.d} label="DAYS"/>
             <span style={{color:"rgba(255,255,255,0.4)",fontWeight:900,fontSize:22,marginBottom:14}}>:</span>
             <Box val={countdown.h} label="HRS"/>
@@ -331,14 +332,6 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
             <Box val={countdown.m} label="MINS"/>
             <span style={{color:"rgba(255,255,255,0.4)",fontWeight:900,fontSize:22,marginBottom:14}}>:</span>
             <Box val={countdown.s} label="SECS"/>
-            <div style={{marginLeft:"auto"}}>
-              <div onClick={()=>setActiveTab&&setActiveTab("calendar")}
-                style={{background:GOLD,color:NAVY,borderRadius:8,padding:"8px 12px",
-                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:11,letterSpacing:"0.06em",textAlign:"center",cursor:"pointer"}}>
-                MATCH<br/>CENTER
-              </div>
-            </div>
           </div>
         ) : (
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
@@ -346,6 +339,18 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
             🕐 KICK OFF TODAY AT 13:30
           </div>
         )}
+        {/* Match Center button — centered below countdown */}
+        <div style={{display:"flex",justifyContent:"center",marginTop:10}}>
+          <div onClick={()=>setActiveTab&&setActiveTab("calendar")}
+            style={{background:GOLD,color:NAVY,borderRadius:8,
+              padding:"8px 24px",minHeight:36,
+              fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:12,letterSpacing:"0.08em",textAlign:"center",
+              cursor:"pointer",WebkitTapHighlightColor:"transparent",
+              boxShadow:"0 2px 8px rgba(245,197,24,0.4)"}}>
+            MATCH CENTER
+          </div>
+        </div>
       </div>
 
       {/* ══ STORIES (Instagram-style) ══ */}
@@ -407,25 +412,53 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
       </div>
 
       {/* ══ QUICK ACTIONS ══ */}
-      <div style={{padding:"10px 12px 0",display:"flex",gap:8,overflowX:"auto",
-        WebkitOverflowScrolling:"touch"}}>
-        {[
-          {icon:"🎟",label:"TICKETS",  fn:()=>setActiveTab&&setActiveTab("store")},
-          {icon:"👕",label:"SHOP",     fn:()=>setActiveTab&&setActiveTab("store")},
-          {icon:"❤️",label:"DONATE",   fn:()=>setShowDonate(true)},
-          {icon:"📰",label:"NEWS",     fn:null},
-          {icon:"🦡",label:"MEMBERS",  fn:openMembership},
-        ].map(item=>(
-          <button key={item.label} onClick={item.fn||undefined}
-            style={{flexShrink:0,display:"flex",flexDirection:"column",alignItems:"center",
-              gap:4,padding:"8px 12px",background:WHITE,border:"1.5px solid #eee",
-              borderRadius:12,cursor:item.fn?"pointer":"default",minWidth:60,
-              WebkitTapHighlightColor:"transparent",boxShadow:"0 1px 4px rgba(0,0,0,0.06)"}}>
-            <span style={{fontSize:20}}>{item.icon}</span>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:800,
-              fontSize:9,color:NAVY,letterSpacing:"0.06em"}}>{item.label}</span>
+      <div style={{padding:"12px 12px 0"}}>
+        {/* Row 1: TICKETS + SHOP — full width, equal */}
+        <div style={{display:"flex",gap:10,marginBottom:10,width:"100%"}}>
+          <button onClick={()=>setActiveTab&&setActiveTab("store")}
+            style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+              gap:8,padding:"14px 0",
+              background:`linear-gradient(135deg,${NAVY},#1a3060)`,
+              border:"none",borderRadius:12,cursor:"pointer",minHeight:52,
+              WebkitTapHighlightColor:"transparent",
+              boxShadow:"0 2px 8px rgba(13,27,62,0.3)"}}>
+            <span style={{fontSize:22}}>🎟</span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:15,color:WHITE,letterSpacing:"0.06em"}}>TICKETS</span>
           </button>
-        ))}
+          <button onClick={()=>setActiveTab&&setActiveTab("store")}
+            style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
+              gap:8,padding:"14px 0",
+              background:`linear-gradient(135deg,${GOLD2},${GOLD})`,
+              border:"none",borderRadius:12,cursor:"pointer",minHeight:52,
+              WebkitTapHighlightColor:"transparent",
+              boxShadow:"0 2px 8px rgba(245,197,24,0.35)"}}>
+            <span style={{fontSize:22}}>👕</span>
+            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+              fontSize:15,color:NAVY,letterSpacing:"0.06em"}}>SHOP</span>
+          </button>
+        </div>
+        {/* Row 2: DONATE + NEWS + MEMBERS — full width, equal thirds */}
+        <div style={{display:"flex",gap:10,width:"100%"}}>
+          {[
+            {icon:"❤️", label:"DONATE",  fn:()=>setShowDonate(true), bg:RED,       fg:WHITE},
+            {icon:"📰", label:"NEWS",    fn:null,                     bg:"#e8e8e8", fg:NAVY},
+            {icon:"🦡", label:"MEMBERS", fn:openMembership,           bg:GREEN,     fg:WHITE},
+          ].map(item=>(
+            <button key={item.label} onClick={item.fn||undefined}
+              style={{flex:1,display:"flex",flexDirection:"column",
+                alignItems:"center",justifyContent:"center",
+                gap:4,padding:"12px 0",
+                background:item.bg,border:"none",borderRadius:12,
+                cursor:item.fn?"pointer":"default",minHeight:56,
+                WebkitTapHighlightColor:"transparent",
+                boxShadow:item.fn?"0 2px 6px rgba(0,0,0,0.15)":"none"}}>
+              <span style={{fontSize:20}}>{item.icon}</span>
+              <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                fontSize:10,color:item.fg,letterSpacing:"0.06em"}}>{item.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ══ NEWS FEED ══ */}
