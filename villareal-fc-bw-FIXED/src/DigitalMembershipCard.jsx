@@ -482,7 +482,7 @@ export default function DigitalMembershipCard({
       setLoading(true);
       setError(null);
       const { data, error: sbErr } = await supabase
-        .from("members")
+        .from("profiles")
         .select("*")
         .eq("id", memberId)
         .single();
