@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
 import DonateModal from "./DonateModal"
-import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Btn } from "./constants"
+import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Pill, Btn, SQUAD } from "./constants"
 
 /* ══════════════════════════════════════════════════════════════════════════════
    FOR YOU

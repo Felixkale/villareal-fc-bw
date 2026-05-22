@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
-import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Btn } from "./constants"
+import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Btn, BottomNav } from "./constants"
 import DonateModal    from "./DonateModal"
 import ForYouScreen   from "./ForYouScreen"
 import CalendarScreen from "./CalendarScreen"

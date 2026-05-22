@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { supabase } from "./supabaseClient"
-import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Btn, SQUAD, STANDINGS } from "./constants"
+import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY, Logo, Pill, Btn, SQUAD, STANDINGS } from "./constants"
 
 /* ══════════════════════════════════════════════════════════════════════════════
    CALENDAR
