@@ -54,23 +54,23 @@ const LOCAL_NEWS = [
   {
     id:"n2", tag:"SQUAD", date:"02 May 2026",
     title:"The Honey Badgers Ready for Battle",
-    body:"The squad showed great spirit ahead of the away stretch. Training hard, playing harder. These boys represent the Boteti with pride. 🦡",
+    body:"The squad showed great spirit ahead of the away stretch. Training hard, playing harder. These boys represent the Boteti West with pride. 🦡",
     photo: PHOTO_DUO2,
-    photoCaption:"Ready for the away games",
+    photoCaption:"Ready for our last game of the season at Home",
   },
   {
     id:"n3", tag:"MATCH", date:"05 May 2026",
     title:"90 Stars Demolish Letlhakane United 2-0 Away",
-    body:"A dominant display away from home. The Honey Badgers were clinical, winning 2-0 in Letlhakane to prove their away credentials.",
+    body:"A dominant display away from home. The Honey Badgers were clinical, with Nkaoza scoring brace to secure our 2-0 against Letlhakane United to secure us a win.",
     photo: PHOTO_DUO1,
     photoCaption:"Celebrating the Letlhakane win",
   },
   {
     id:"n4", tag:"SQUAD", date:"May 2026",
-    title:"Goalkeeper Mosweu — Wall Between the Posts",
+    title:"Goalkeeper Bosena — Wall Between the Posts",
     body:"The Pink Wall has been a key part of our season. Our keeper's performances have kept us in multiple matches. The number 1 is ready for Golden Birds.",
     photo: PHOTO_GK,
-    photoCaption:"Mosweu ready with gloves on",
+    photoCaption:"Bosena ready with gloves on",
   },
 ]
 
