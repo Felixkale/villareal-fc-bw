@@ -185,9 +185,17 @@ export default function App(){
               alignItems:"center",justifyContent:"space-between",
               borderBottom:`1px solid #eee`,flexShrink:0}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <Logo size={28}/>
+                {activeTab==="foryou"
+                  ? <img src="/logo_90stars.png" alt="90 Stars"
+                      style={{width:32,height:32,borderRadius:"50%",objectFit:"contain",
+                        background:NAVY,padding:2}}
+                      onError={e=>{e.target.style.display="none"}}/>
+                  : <Logo size={28}/>
+                }
                 <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                  fontSize:"clamp(16px,5vw,20px)",color:NAVY}}>{hdr}</span>
+                  fontSize:"clamp(16px,5vw,20px)",color:NAVY}}>
+                  {activeTab==="foryou"?"90 STARS ACADEMY":hdr}
+                </span>
               </div>
 
             </div>
