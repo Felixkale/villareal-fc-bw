@@ -81,46 +81,68 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
             NEXT MATCH
           </div>
           {/* Teams row */}
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
-            marginBottom:12,gap:8}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-              <div style={{width:36,height:36,borderRadius:"50%",
-                background:"rgba(255,255,255,0.1)",flexShrink:0,
-                display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <Logo size={26}/>
+          {(() => {
+            // Map opponent names to their logos
+            const OPP_LOGOS = {
+              "Golden Birds":        "/logo_golden_birds.png",
+              "GOLDEN BIRDS":        "/logo_golden_birds.png",
+            }
+            const oppLogo = OPP_LOGOS[nextFixture.opponent]
+            return (
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",
+              marginBottom:12,gap:8}}>
+              {/* Our team */}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",
+                gap:6,flex:1,minWidth:0}}>
+                <img src="/logo_90stars.png" alt="Villareal FC"
+                  style={{width:"clamp(44px,12vw,56px)",height:"clamp(44px,12vw,56px)",
+                    objectFit:"contain",borderRadius:"50%",
+                    background:"rgba(255,255,255,0.1)",padding:2}}/>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:"clamp(10px,3vw,13px)",color:WHITE,lineHeight:1,
+                  textAlign:"center"}}>VILLAREAL FC</div>
               </div>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(13px,4vw,17px)",color:WHITE,lineHeight:1}}>
-                VILLAREAL FC
+              {/* VS */}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:"clamp(14px,4vw,20px)",color:GOLD}}>VS</div>
+                <div style={{fontSize:9,color:"rgba(255,255,255,0.5)",
+                  fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,
+                  letterSpacing:"0.06em"}}>WEEK 24</div>
+              </div>
+              {/* Opponent */}
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",
+                gap:6,flex:1,minWidth:0}}>
+                <div style={{width:"clamp(44px,12vw,56px)",height:"clamp(44px,12vw,56px)",
+                  borderRadius:"50%",background:"rgba(255,255,255,0.1)",
+                  display:"flex",alignItems:"center",justifyContent:"center",
+                  overflow:"hidden",padding:2}}>
+                  {oppLogo
+                    ? <img src={oppLogo} alt={nextFixture.opponent}
+                        style={{width:"100%",height:"100%",objectFit:"contain"}}/>
+                    : <span style={{fontSize:24}}>⚽</span>
+                  }
+                </div>
+                <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
+                  fontSize:"clamp(10px,3vw,13px)",color:WHITE,lineHeight:1,
+                  textAlign:"center",overflow:"hidden",textOverflow:"ellipsis",
+                  whiteSpace:"nowrap",maxWidth:"clamp(70px,20vw,100px)"}}>
+                  {nextFixture.opponent.toUpperCase()}
+                </div>
               </div>
             </div>
-            <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:"clamp(14px,4vw,18px)",color:GOLD,flexShrink:0}}>VS</div>
-            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,
-              minWidth:0,justifyContent:"flex-end"}}>
-              <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:"clamp(12px,3.5vw,15px)",color:WHITE,lineHeight:1,
-                textAlign:"right",overflow:"hidden",textOverflow:"ellipsis",
-                whiteSpace:"nowrap"}}>
-                {nextFixture.opponent}
-              </div>
-              <div style={{width:36,height:36,borderRadius:"50%",
-                background:"rgba(255,255,255,0.1)",flexShrink:0,
-                display:"flex",alignItems:"center",justifyContent:"center",
-                fontSize:18}}>⚽</div>
-            </div>
-          </div>
+            )
+          })()}
           {/* Match info */}
           <div style={{fontSize:"clamp(10px,2.8vw,12px)",color:"rgba(255,255,255,0.6)",
-            marginBottom:12,display:"flex",gap:10,alignItems:"center"}}>
+            marginBottom:12,display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
             <span>📅 {new Date(nextFixture.match_date).toLocaleDateString("en-GB",
               {weekday:"short",day:"numeric",month:"short"})}</span>
             <span>⏰ {nextFixture.kick_off||"15:00"}</span>
-            <span style={{background:nextFixture.venue==="HOME"?GREEN:RED,
+            <span>📍 Falcon Ground</span>
+            <span style={{background:GREEN,
               color:WHITE,padding:"1px 6px",borderRadius:3,fontSize:9,fontWeight:800,
-              fontFamily:"'Barlow Condensed',sans-serif"}}>
-              {nextFixture.venue||"HOME"}
-            </span>
+              fontFamily:"'Barlow Condensed',sans-serif"}}>HOME</span>
           </div>
           {/* Countdown */}
           <div style={{display:"flex",gap:"clamp(6px,2vw,10px)",alignItems:"center"}}>
