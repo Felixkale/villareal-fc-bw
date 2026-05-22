@@ -40,7 +40,6 @@ const TIER_CONFIG = {
       { icon: "✅", text: "EVERYTHING IN GLOBAL FAN" },
       { icon: "🎟️", text: "20% OFF MATCH-DAY TICKETS" },
       { icon: "🏷️", text: "10% OFF OFFICIAL STORE" },
-      { icon: "🏟️", text: "FREE ENTRY TO HOME MATCHES" },
       { icon: "💳", text: "DIGITAL MEMBERSHIP CARD" },
       { icon: "🎉", text: "EXCLUSIVE MEMBER EVENTS" },
       { icon: "📢", text: "VOTE IN CLUB DECISIONS" },
@@ -102,7 +101,6 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// Short readable ID from UUID — take first 8 chars uppercased
 function shortId(id) {
   if (!id) return "VFC-000000";
   const clean = id.toString().replace(/-/g, "").toUpperCase().slice(0, 8);
@@ -120,7 +118,6 @@ const S = {
     fontSize:10, color:"#94a3b8", letterSpacing:"0.06em",
     fontFamily:"Barlow,sans-serif", textTransform:"uppercase",
   },
-  // Card scales to container — no fixed maxWidth, use 100%
   card: {
     width:"100%",
     borderRadius:14,
@@ -132,7 +129,6 @@ const S = {
     display:"flex", flexDirection:"row",
     minHeight:0, position:"relative",
   },
-  // Left dark panel — fixed narrow width
   left: {
     background:"#0b1120",
     width:"30%", minWidth:90, maxWidth:120,
@@ -317,8 +313,6 @@ export default function DigitalMembershipCard({
   );
 
   const tier = TIER_CONFIG[member.tier] || TIER_CONFIG.honey_badger;
-
-  // Photo: check avatar_url, then photo_url, then null
   const photoSrc = member.avatar_url || member.photo_url || null;
 
   return (
@@ -347,7 +341,6 @@ export default function DigitalMembershipCard({
             {/* LEFT */}
             <div style={S.left}>
               <div style={S.leftTail}/>
-              {/* Deco */}
               <div style={{position:"absolute",width:70,height:70,
                 background:"rgba(212,168,0,0.08)",borderRadius:"50%",
                 top:-20,left:-20,pointerEvents:"none"}}/>
