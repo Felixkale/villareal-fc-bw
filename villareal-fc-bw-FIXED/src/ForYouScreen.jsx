@@ -411,51 +411,35 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
         </div>
       </div>
 
-      {/* ══ QUICK ACTIONS ══ */}
-      <div style={{padding:"12px 12px 0"}}>
-        {/* Row 1: TICKETS + SHOP — full width, equal */}
-        <div style={{display:"flex",gap:10,marginBottom:10,width:"100%"}}>
-          <button onClick={()=>setActiveTab&&setActiveTab("store")}
-            style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
-              gap:8,padding:"14px 0",
-              background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-              border:"none",borderRadius:12,cursor:"pointer",minHeight:52,
-              WebkitTapHighlightColor:"transparent",
-              boxShadow:"0 2px 8px rgba(13,27,62,0.3)"}}>
-            <span style={{fontSize:22}}>🎟</span>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:15,color:WHITE,letterSpacing:"0.06em"}}>TICKETS</span>
-          </button>
-          <button onClick={()=>setActiveTab&&setActiveTab("store")}
-            style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",
-              gap:8,padding:"14px 0",
-              background:`linear-gradient(135deg,${GOLD2},${GOLD})`,
-              border:"none",borderRadius:12,cursor:"pointer",minHeight:52,
-              WebkitTapHighlightColor:"transparent",
-              boxShadow:"0 2px 8px rgba(245,197,24,0.35)"}}>
-            <span style={{fontSize:22}}>👕</span>
-            <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-              fontSize:15,color:NAVY,letterSpacing:"0.06em"}}>SHOP</span>
-          </button>
-        </div>
-        {/* Row 2: DONATE + NEWS + MEMBERS — full width, equal thirds */}
-        <div style={{display:"flex",gap:10,width:"100%"}}>
+      {/* ══ QUICK ACTIONS — horizontal scroll ══ */}
+      <div style={{padding:"12px 0 0",overflowX:"auto",WebkitOverflowScrolling:"touch",
+        scrollbarWidth:"none"}}>
+        <div style={{display:"flex",gap:10,padding:"0 12px",
+          width:"max-content"}}>
           {[
-            {icon:"❤️", label:"DONATE",  fn:()=>setShowDonate(true), bg:RED,       fg:WHITE},
-            {icon:"📰", label:"NEWS",    fn:null,                     bg:"#e8e8e8", fg:NAVY},
-            {icon:"🦡", label:"MEMBERS", fn:openMembership,           bg:GREEN,     fg:WHITE},
+            {icon:"🎟", label:"TICKETS", fn:()=>setActiveTab&&setActiveTab("store"),
+              bg:`linear-gradient(135deg,${NAVY},#1a3060)`, fg:WHITE},
+            {icon:"👕", label:"SHOP",    fn:()=>setActiveTab&&setActiveTab("store"),
+              bg:`linear-gradient(135deg,${GOLD2},${GOLD})`, fg:NAVY},
+            {icon:"❤️", label:"DONATE",  fn:()=>setShowDonate(true),
+              bg:`linear-gradient(135deg,${RED},#9b1c1c)`, fg:WHITE},
+            {icon:"📰", label:"NEWS",    fn:null,
+              bg:"#e8e8e8", fg:NAVY},
+            {icon:"🦡", label:"MEMBERS", fn:openMembership,
+              bg:`linear-gradient(135deg,${GREEN},#15803d)`, fg:WHITE},
           ].map(item=>(
             <button key={item.label} onClick={item.fn||undefined}
-              style={{flex:1,display:"flex",flexDirection:"column",
-                alignItems:"center",justifyContent:"center",
-                gap:4,padding:"12px 0",
-                background:item.bg,border:"none",borderRadius:12,
-                cursor:item.fn?"pointer":"default",minHeight:56,
+              style={{flexShrink:0,display:"flex",alignItems:"center",
+                justifyContent:"center",gap:8,
+                padding:"12px 18px",minHeight:50,minWidth:110,
+                background:item.bg,border:"none",borderRadius:14,
+                cursor:item.fn?"pointer":"default",
                 WebkitTapHighlightColor:"transparent",
-                boxShadow:item.fn?"0 2px 6px rgba(0,0,0,0.15)":"none"}}>
+                boxShadow:item.fn?"0 2px 8px rgba(0,0,0,0.18)":"none"}}>
               <span style={{fontSize:20}}>{item.icon}</span>
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:10,color:item.fg,letterSpacing:"0.06em"}}>{item.label}</span>
+                fontSize:13,color:item.fg,letterSpacing:"0.05em",
+                whiteSpace:"nowrap"}}>{item.label}</span>
             </button>
           ))}
         </div>
