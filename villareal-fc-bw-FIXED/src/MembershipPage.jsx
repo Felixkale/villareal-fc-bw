@@ -75,6 +75,39 @@ const ID_TYPES = [
   { id:"license",  label:"Driver's License",   sides:2, icon:"🚗" },
 ]
 
+// ── Hoisted helpers (module-level — no TDZ risk) ──────────────────────────
+const getPrice = (p, ag, billing) => {
+  if (!p || !ag || !billing) return null
+  const key = `${ag}_${billing}`
+  return p.prices[key] ?? null
+}
+
+const getSaving = (p, ag) => {
+  if (!p || !ag) return 0
+  const m = p.prices[`${ag}_monthly`]
+  const y = p.prices[`${ag}_yearly`]
+  if (m == null || y == null) return 0
+  return (m * 12) - y
+}
+
+const getAgeFromDob = (dobStr) => {
+  if (!dobStr) return null
+  const today = new Date()
+  const birth = new Date(dobStr)
+  let age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
+  return age
+}
+
+const getAgeGroupFromAge = (age) => {
+  if (age === null || age === undefined) return null
+  if (age <= 5)  return "infant"
+  if (age <= 17) return "youth"
+  return "adult"
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const MembershipPage = ({ session, onClose, onSuccess }) => {
   const [step,     setStep]    = useState(1)
   const [plan,     setPlan]    = useState(null)
@@ -90,43 +123,11 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
   const [error,    setError]   = useState("")
   const [nameVal,  setNameVal] = useState(session?.user?.user_metadata?.full_name || "")
 
-  const selectedPlan   = PLANS.find(p => p.id === plan)
-  const needsVerify    = ageGroup === "adult"
-  const price          = getPrice(selectedPlan, ageGroup) || 0
-  const isPaid         = price > 0
-  const totalSteps     = needsVerify ? 5 : isPaid ? 4 : 3
-
-  const getPrice = (p, ag) => {
-    if (!p || !ag) return null
-    const key = `${ag}_${billing}`
-    return p.prices[key]
-  }
-
-  const getSaving = (p, ag) => {
-    if (!p || !ag) return 0
-    const m = p.prices[`${ag}_monthly`]
-    const y = p.prices[`${ag}_yearly`]
-    if (!m || !y) return 0
-    return (m * 12) - y
-  }
-
-  // Detect age from DOB
-  const getAgeFromDob = (dobStr) => {
-    if (!dobStr) return null
-    const today = new Date()
-    const birth = new Date(dobStr)
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-    return age
-  }
-
-  const getAgeGroupFromAge = (age) => {
-    if (age === null) return null
-    if (age <= 5)  return "infant"
-    if (age <= 17) return "youth"
-    return "adult"
-  }
+  const selectedPlan = PLANS.find(p => p.id === plan)
+  const needsVerify  = ageGroup === "adult"
+  const price        = getPrice(selectedPlan, ageGroup, billing) ?? 0
+  const isPaid       = price > 0
+  const totalSteps   = needsVerify ? 5 : isPaid ? 4 : 3
 
   // Camera helpers
   const capturePhoto = (setter) => {
@@ -262,8 +263,8 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
 
       <div style={{padding:"12px 12px 20px",display:"flex",flexDirection:"column",gap:10}}>
         {PLANS.map(p => {
-          const adultPrice = getPrice(p, "adult")
-          const youthPrice = getPrice(p, "youth")
+          const adultPrice = getPrice(p, "adult", billing)
+          const youthPrice = getPrice(p, "youth", billing)
           const isSelected = plan === p.id
           return (
             <div key={p.id} onClick={()=>setPlan(p.id)} style={{
@@ -377,7 +378,6 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
     const age = getAgeFromDob(dob)
     const detectedGroup = getAgeGroupFromAge(age)
 
-    // Honey Badger must be adult — reject under 18
     const isDobValid = dob && age !== null
     const isBlocked = selectedPlan?.adultsOnly && isDobValid && age < 18
     const isFraud = isDobValid && age <= 5 && plan !== "free"
@@ -446,8 +446,8 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
                 </div>
                 <div style={{fontSize:12,color:MGRAY,lineHeight:1.5}}>
                   {detectedGroup==="infant"&&"Infant (0–5) · Free on all plans"}
-                  {detectedGroup==="youth"&&`Youth (6–17) · P${getPrice(selectedPlan,"youth")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name}`}
-                  {detectedGroup==="adult"&&`Adult (18+) · P${getPrice(selectedPlan,"adult")||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name} · ID verification required`}
+                  {detectedGroup==="youth"&&`Youth (6–17) · P${getPrice(selectedPlan,"youth",billing)||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name}`}
+                  {detectedGroup==="adult"&&`Adult (18+) · P${getPrice(selectedPlan,"adult",billing)||0}/${billing==="monthly"?"mo":"yr"} on ${selectedPlan?.name} · ID verification required`}
                 </div>
               </>
             )}
@@ -477,10 +477,10 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
                 {selectedPlan?.name} · {age} yrs
               </span>
               <span style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
-                fontSize:22,color:getPrice(selectedPlan,ageGroup)===0?GREEN:NAVY}}>
-                {getPrice(selectedPlan,ageGroup)===0
+                fontSize:22,color:getPrice(selectedPlan,ageGroup,billing)===0?GREEN:NAVY}}>
+                {getPrice(selectedPlan,ageGroup,billing)===0
                   ? "FREE"
-                  : `P${getPrice(selectedPlan,ageGroup)}/${billing==="monthly"?"mo":"yr"}`}
+                  : `P${getPrice(selectedPlan,ageGroup,billing)}/${billing==="monthly"?"mo":"yr"}`}
               </span>
             </div>
             {billing==="yearly"&&getSaving(selectedPlan,ageGroup)>0&&(
@@ -810,7 +810,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
     const [method, setMethod] = useState("")
     const [ref,    setRef]    = useState("")
     const [done,   setDone]   = useState(false)
-    const price = getPrice(selectedPlan, ageGroup)
+    const pmtPrice = getPrice(selectedPlan, ageGroup, billing)
     const METHODS = [
       { id:"orange",  label:"Orange Money",  icon:"🟠", num:"*145#" },
       { id:"myzaka",  label:"MyZaka",        icon:"🔵", num:"*167#" },
@@ -855,7 +855,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
           </div>
           <div style={{fontFamily:"'Barlow Condensed',sans-serif",fontWeight:900,
             fontSize:42,color:GOLD,lineHeight:1}}>
-            P{price}
+            P{pmtPrice}
           </div>
           <div style={{fontSize:11,color:"rgba(255,255,255,0.5)",marginTop:4}}>
             /{billing==="monthly"?"month":"year"}
@@ -904,7 +904,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
               <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
                 1. Dial <strong>*145#</strong> on your phone<br/>
                 2. Select <strong>Send Money</strong><br/>
-                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
+                3. Send <strong>P{pmtPrice}</strong> to <strong>74123456</strong><br/>
                 4. Enter your reference code below
               </div>
             )}
@@ -912,7 +912,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
               <div style={{fontSize:12,color:"#78350f",lineHeight:1.7}}>
                 1. Open MyZaka app or dial <strong>*167#</strong><br/>
                 2. Select <strong>Send Money</strong><br/>
-                3. Send <strong>P{price}</strong> to <strong>74123456</strong><br/>
+                3. Send <strong>P{pmtPrice}</strong> to <strong>74123456</strong><br/>
                 4. Enter your reference code below
               </div>
             )}
@@ -922,7 +922,7 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
                 Account: <strong>62012345678</strong><br/>
                 Branch: <strong>282672</strong><br/>
                 Reference: <strong>Your email address</strong><br/>
-                Amount: <strong>P{price}</strong>
+                Amount: <strong>P{pmtPrice}</strong>
               </div>
             )}
           </div>
@@ -1068,8 +1068,5 @@ const MembershipPage = ({ session, onClose, onSuccess }) => {
     </div>
   )
 }
-
-
-
 
 export default MembershipPage
