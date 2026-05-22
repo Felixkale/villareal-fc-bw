@@ -13,7 +13,6 @@ const ProfileScreen=({session,profile,onLogout,goToAuth,openMembership})=>{
 
   // ── Benefits by tier ───────────────────────────────────────────────────────
   const honeyBadgerBenefits=[
-    { title:"FREE ENTRY TO HOME MATCHES",  sub:"Walk in free every home game",          emoji:"🏟️", bg:"linear-gradient(135deg,#1a3a6e,#0d2244)" },
     { title:"20% OFF MATCH-DAY TICKETS",   sub:"Biggest discount on all match tickets", emoji:"🎟️", bg:"linear-gradient(135deg,#1e4d2b,#0d2a18)" },
     { title:"10% OFF OFFICIAL STORE",      sub:"Save on all merch & kits",              emoji:"👕", bg:"linear-gradient(135deg,#4a2000,#2a1200)" },
     { title:"DIGITAL MEMBERSHIP CARD",     sub:"Your official Honey Badger card",       emoji:"💳", bg:"linear-gradient(135deg,#7a6000,#3a2e00)" },
