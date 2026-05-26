@@ -60,25 +60,27 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
   }, [nextMatch])
 
   // ── Story logic ────────────────────────────────────────────
-  const stories = results.map(r => {
-    const isHome  = r.home_team === "90 Stars Academy"
-    const ourScore   = isHome ? r.home_score : r.away_score
-    const theirScore = isHome ? r.away_score : r.home_score
-    const opponent   = isHome ? r.away_team  : r.home_team
-    const won  = ourScore > theirScore
-    const lost = ourScore < theirScore
-    return {
-      id: r.id,
-      opp: opponent,
-      score: `${ourScore}-${theirScore}`,
-      result: won ? "W" : lost ? "L" : "D",
-      caption: r.gk_note
-        ? `${r.scorers || ""} — ${r.gk_note} 🙌 #HoneyBadgers`
-        : r.scorers
-        ? `${r.scorers} ⚽ #HoneyBadgers`
-        : `${opponent} · ${ourScore}-${theirScore} #90Stars`,
-    }
-  })
+  const stories = results
+    .filter(r => r.home_team && r.away_team) // skip rows with missing team names
+    .map(r => {
+      const isHome     = r.home_team === "90 Stars Academy"
+      const ourScore   = isHome ? (r.home_score ?? 0) : (r.away_score ?? 0)
+      const theirScore = isHome ? (r.away_score ?? 0) : (r.home_score ?? 0)
+      const opponent   = (isHome ? r.away_team : r.home_team) || "Unknown"
+      const won  = ourScore > theirScore
+      const lost = ourScore < theirScore
+      return {
+        id: r.id,
+        opp: opponent,
+        score: `${ourScore}-${theirScore}`,
+        result: won ? "W" : lost ? "L" : "D",
+        caption: r.gk_note
+          ? `${r.scorers || ""} — ${r.gk_note} 🙌 #HoneyBadgers`
+          : r.scorers
+          ? `${r.scorers} ⚽ #HoneyBadgers`
+          : `${opponent} · ${ourScore}-${theirScore} #90Stars`,
+      }
+    })
 
   // Add next match as last bubble if exists
   if (nextMatch) {
@@ -343,7 +345,7 @@ const ForYouScreen = ({ session, openMembership, setActiveTab }) => {
                 <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700,
                   fontSize: "clamp(8px,2vw,10px)", color: NAVY, textAlign: "center",
                   maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {s.opp.split(" ")[0]}
+                  {(s.opp || "OPP").split(" ")[0]}
                 </div>
                 {s.score ? (
                   <div style={{ fontSize: 9, fontWeight: 900, marginTop: -2,
