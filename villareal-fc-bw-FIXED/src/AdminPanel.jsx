@@ -161,8 +161,12 @@ export default function AdminPanel({ onClose, session }) {
 
   // ── Table form
   const [tClub, setTClub] = useState("")
-  const [tP,setTP]=useState("") const [tW,setTW]=useState("") const [tD,setTD]=useState("")
-  const [tL,setTL]=useState("") const [tGF,setTGF]=useState("") const [tGA,setTGA]=useState("")
+  const [tP,setTP]=useState("")
+  const [tW,setTW]=useState("")
+  const [tD,setTD]=useState("")
+  const [tL,setTL]=useState("")
+  const [tGF,setTGF]=useState("")
+  const [tGA,setTGA]=useState("")
   const [tPts,setTPts]=useState("")
 
   // ── Fixture form
