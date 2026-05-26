@@ -1,416 +1,521 @@
 import React, { useState, useEffect } from "react"
 import { supabase } from "./supabaseClient"
-import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, Logo, Ico, Btn } from "./constants"
+import { NAVY, GOLD, GOLD2, WHITE, MGRAY, RED, GREEN, LGRAY } from "./constants"
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   ADMIN PANEL
-   Only renders if profile.role === 'admin'
-══════════════════════════════════════════════════════════════════════════════ */
-
-const TIERS = ["premium_free", "global_fan", "honey_badger"]
-const TIER_LABELS = {
-  premium_free: "🆓 Premium Free",
-  global_fan:   "🌍 Global Fan",
-  honey_badger: "🦡 Honey Badger",
-}
-const TIER_COLORS = {
-  premium_free: "#22c55e",
-  global_fan:   "#facc15",
-  honey_badger: "#f5c518",
-}
-
-const ROLES = ["user", "admin"]
-
-// ── Styles outside component to prevent re-render focus loss ─────────────────
+// ─── SHARED MINI COMPONENTS ──────────────────────────────────────────────────
 const S = {
   overlay: {
-    position:"fixed", inset:0, zIndex:1000,
-    background:"rgba(0,0,0,0.55)",
-    display:"flex", alignItems:"flex-end",
-    WebkitTapHighlightColor:"transparent",
-  },
-  sheet: {
-    width:"100%", maxHeight:"92vh",
-    background:"#f5f6fa",
-    borderRadius:"20px 20px 0 0",
-    overflow:"hidden",
+    position:"absolute", inset:0, zIndex:300,
+    background: NAVY,
     display:"flex", flexDirection:"column",
+    overflowY:"auto",
   },
   header: {
-    background:`linear-gradient(135deg,${NAVY},#1a3060)`,
-    padding:"18px 20px 14px",
+    background: NAVY,
+    borderBottom:`2px solid ${GOLD}`,
+    padding:"14px 16px",
     display:"flex", alignItems:"center", justifyContent:"space-between",
-    flexShrink:0,
+    position:"sticky", top:0, zIndex:10, flexShrink:0,
   },
-  headerTitle: {
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:900, fontSize:20, color:GOLD, letterSpacing:"0.08em",
+  tabBar: {
+    display:"flex", overflowX:"auto", background:"#0a1020",
+    borderBottom:`1px solid rgba(255,255,255,0.08)`,
+    position:"sticky", top:57, zIndex:9, flexShrink:0,
   },
-  headerSub: {
-    fontSize:11, color:"rgba(255,255,255,0.5)",
-    fontFamily:"'Barlow Condensed',sans-serif",
-    letterSpacing:"0.06em", marginTop:2,
+  section: { padding:16, paddingBottom:32 },
+  label: {
+    fontSize:10, fontFamily:"'Barlow Condensed',sans-serif",
+    fontWeight:700, letterSpacing:1.5, color: GOLD,
+    textTransform:"uppercase", marginBottom:4, display:"block",
   },
-  closeBtn: {
-    width:36, height:36, borderRadius:"50%",
-    background:"rgba(255,255,255,0.1)",
-    border:"none", cursor:"pointer", color:WHITE,
-    display:"flex", alignItems:"center", justifyContent:"center",
-    fontSize:20, fontWeight:300,
-    WebkitTapHighlightColor:"transparent",
+  input: (extra={}) => ({
+    width:"100%", background:"rgba(255,255,255,0.07)",
+    border:`1px solid rgba(255,255,255,0.15)`,
+    borderRadius:6, color: WHITE, padding:"10px 12px",
+    fontSize:13, fontFamily:"inherit", boxSizing:"border-box",
+    outline:"none", marginBottom:10, ...extra,
+  }),
+  select: {
+    width:"100%", background:"#0d1b3e",
+    border:`1px solid rgba(255,255,255,0.15)`,
+    borderRadius:6, color: WHITE, padding:"10px 12px",
+    fontSize:13, fontFamily:"inherit", boxSizing:"border-box",
+    outline:"none", marginBottom:10,
   },
-  body: {
-    flex:1, overflowY:"auto",
-    WebkitOverflowScrolling:"touch",
-    padding:"14px 14px 32px",
+  saveBtn: {
+    background: GOLD, color: NAVY,
+    border:"none", borderRadius:6, padding:"11px 22px",
+    fontSize:13, fontFamily:"'Barlow Condensed',sans-serif",
+    fontWeight:800, letterSpacing:1, cursor:"pointer",
   },
-  sectionLbl: {
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:800, fontSize:11, color:MGRAY,
-    letterSpacing:"0.1em", marginBottom:10, marginTop:16,
+  delBtn: {
+    background:"transparent", border:`1px solid ${RED}`,
+    color: RED, borderRadius:4, padding:"5px 10px",
+    fontSize:11, fontFamily:"'Barlow Condensed',sans-serif",
+    fontWeight:700, cursor:"pointer", flexShrink:0,
   },
-  statsRow: {
-    display:"grid", gridTemplateColumns:"1fr 1fr 1fr",
-    gap:10, marginBottom:4,
+  sectionTitle: {
+    fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900,
+    fontSize:16, color: GOLD, letterSpacing:2,
+    textTransform:"uppercase", marginBottom:14,
   },
-  statCard: {
-    background:WHITE, borderRadius:12,
-    padding:"12px 10px", textAlign:"center",
-    boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
+  row: {
+    background:"rgba(255,255,255,0.05)",
+    border:`1px solid rgba(255,255,255,0.08)`,
+    borderRadius:7, padding:"10px 12px", marginBottom:8,
+    display:"flex", alignItems:"center", justifyContent:"space-between", gap:10,
   },
-  statVal: {
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:900, fontSize:22, color:NAVY, lineHeight:1,
-  },
-  statLbl: {
-    fontSize:9, color:MGRAY,
-    fontFamily:"'Barlow Condensed',sans-serif",
-    letterSpacing:"0.08em", marginTop:4,
-  },
-  searchBox: {
-    width:"100%", padding:"10px 14px",
-    border:"1.5px solid #e2e8f0",
-    borderRadius:10, fontSize:14,
-    fontFamily:"'Barlow Condensed',sans-serif",
-    color:NAVY, background:WHITE,
-    boxSizing:"border-box", outline:"none",
-    marginBottom:10,
-  },
-  memberRow: {
-    background:WHITE, borderRadius:14,
-    padding:"12px 14px", marginBottom:8,
-    boxShadow:"0 1px 6px rgba(0,0,0,0.06)",
-    display:"flex", alignItems:"center", gap:12,
-  },
-  avatar: {
-    width:42, height:42, borderRadius:"50%",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:900, fontSize:16, flexShrink:0,
-    background:`linear-gradient(135deg,${GOLD},${GOLD2})`,
-    color:NAVY,
-  },
-  memberInfo: { flex:1, minWidth:0 },
-  memberName: {
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:800, fontSize:14, color:NAVY,
-    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
-  },
-  memberEmail: {
-    fontSize:11, color:MGRAY, marginTop:1,
-    whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis",
-  },
-  tierPill: {
-    borderRadius:20, padding:"3px 10px",
-    fontSize:10, fontWeight:800,
-    fontFamily:"'Barlow Condensed',sans-serif",
-    letterSpacing:"0.08em", border:"none", cursor:"pointer",
-    WebkitTapHighlightColor:"transparent",
-    flexShrink:0,
-  },
-  // Edit modal
-  modalOverlay: {
-    position:"fixed", inset:0, zIndex:2000,
-    background:"rgba(0,0,0,0.6)",
-    display:"flex", alignItems:"center", justifyContent:"center",
-    padding:"20px",
-  },
-  modal: {
-    background:WHITE, borderRadius:18,
-    width:"100%", maxWidth:360,
-    padding:"24px 20px",
-    boxShadow:"0 20px 60px rgba(0,0,0,0.3)",
-  },
-  modalTitle: {
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:900, fontSize:18, color:NAVY,
-    marginBottom:4,
-  },
-  modalSub: { fontSize:12, color:MGRAY, marginBottom:20 },
-  optionBtn: {
-    width:"100%", padding:"12px 16px", marginBottom:8,
-    borderRadius:10, border:"2px solid transparent",
-    cursor:"pointer", textAlign:"left",
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:800, fontSize:14,
-    display:"flex", alignItems:"center", justifyContent:"space-between",
-    WebkitTapHighlightColor:"transparent",
-  },
-  cancelBtn: {
-    width:"100%", padding:"11px",
-    background:"transparent", border:`1.5px solid #e2e8f0`,
-    borderRadius:10, cursor:"pointer", marginTop:4,
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:700, fontSize:14, color:MGRAY,
-    WebkitTapHighlightColor:"transparent",
-  },
-  toast: {
-    position:"fixed", bottom:90, left:"50%",
-    transform:"translateX(-50%)",
-    background:NAVY, color:GOLD,
-    padding:"10px 20px", borderRadius:20,
-    fontFamily:"'Barlow Condensed',sans-serif",
-    fontWeight:800, fontSize:13, letterSpacing:"0.08em",
-    zIndex:3000, whiteSpace:"nowrap",
-    boxShadow:"0 4px 20px rgba(0,0,0,0.3)",
-  },
+  rowLabel: { fontSize:13, color: WHITE, fontFamily:"inherit" },
+  rowSub: { fontSize:11, color: MGRAY, marginTop:2 },
+  divider: { borderTop:`1px solid rgba(255,255,255,0.08)`, margin:"20px 0 16px" },
 }
 
-export default function AdminPanel({ onClose }) {
-  const [members, setMembers]         = useState([])
-  const [filtered, setFiltered]       = useState([])
-  const [search, setSearch]           = useState("")
-  const [loading, setLoading]         = useState(true)
-  const [editing, setEditing]         = useState(null)   // member being edited
-  const [saving, setSaving]           = useState(false)
-  const [toast, setToast]             = useState("")
+const Inp = ({ label, textarea, ...p }) => (
+  <div>
+    {label && <span style={S.label}>{label}</span>}
+    {textarea
+      ? <textarea {...p} style={S.input({ minHeight:80, resize:"vertical" })} />
+      : <input {...p} style={S.input()} />}
+  </div>
+)
 
-  // ── Fetch all members ──────────────────────────────────────────────────────
+const Sel = ({ label, options, ...p }) => (
+  <div>
+    {label && <span style={S.label}>{label}</span>}
+    <select {...p} style={S.select}>
+      {options.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
+  </div>
+)
+
+const Row = ({ label, sub, onDelete }) => (
+  <div style={S.row}>
+    <div style={{flex:1, minWidth:0}}>
+      <div style={{...S.rowLabel, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>{label}</div>
+      {sub && <div style={S.rowSub}>{sub}</div>}
+    </div>
+    <button style={S.delBtn} onClick={onDelete}>✕ DEL</button>
+  </div>
+)
+
+const SecTitle = ({ children }) => (
+  <div style={S.sectionTitle}>{children}</div>
+)
+
+const SaveBtn = ({ onClick, children="+ SAVE" }) => (
+  <button style={S.saveBtn} onClick={onClick}>{children}</button>
+)
+
+const toast = (msg, setMsg) => {
+  setMsg(msg)
+  setTimeout(() => setMsg(""), 2500)
+}
+
+// ─── ADMIN PANEL ─────────────────────────────────────────────────────────────
+export default function AdminPanel({ onClose, session }) {
+  const [tab, setTab]     = useState("news")
+  const [toastMsg, setToastMsg] = useState("")
+  const [loading, setLoading]   = useState(false)
+
+  // Data state
+  const [newsList,   setNewsList]   = useState([])
+  const [results,    setResults]    = useState([])
+  const [halftime,   setHalftime]   = useState([])
+  const [players,    setPlayers]    = useState([])
+  const [tableRows,  setTableRows]  = useState([])
+  const [fixtures,   setFixtures]   = useState([])
+  const [storeItems, setStoreItems] = useState([])
+
+  // ── News form
+  const [nTag,   setNTag]   = useState("MATCH REPORT")
+  const [nTitle, setNTitle] = useState("")
+  const [nBody,  setNBody]  = useState("")
+  const [nPin,   setNPin]   = useState(false)
+
+  // ── Result form
+  const [rHome,    setRHome]    = useState("90 Stars Academy")
+  const [rAway,    setRAway]    = useState("")
+  const [rHS,      setRHS]      = useState("")
+  const [rAS,      setRAS]      = useState("")
+  const [rScorers, setRScorers] = useState("")
+  const [rGK,      setRGK]      = useState("")
+  const [rVenue,   setRVenue]   = useState("")
+  const [rDate,    setRDate]    = useState("")
+  const [rComp,    setRComp]    = useState("League")
+
+  // ── Halftime form
+  const [htMatch,   setHtMatch]   = useState("")
+  const [htCaption, setHtCaption] = useState("")
+
+  // ── Player form
+  const [plName, setPlName] = useState("")
+  const [plPos,  setPlPos]  = useState("FW")
+  const [plNo,   setPlNo]   = useState("")
+  const [plApps, setPlApps] = useState("")
+  const [plGls,  setPlGls]  = useState("")
+  const [plAst,  setPlAst]  = useState("")
+  const [plSvs,  setPlSvs]  = useState("")
+  const [plCS,   setPlCS]   = useState("")
+  const [plY,    setPlY]    = useState("")
+  const [plR,    setPlR]    = useState("")
+
+  // ── Table form
+  const [tClub, setTClub] = useState("")
+  const [tP,setTP]=useState("") const [tW,setTW]=useState("") const [tD,setTD]=useState("")
+  const [tL,setTL]=useState("") const [tGF,setTGF]=useState("") const [tGA,setTGA]=useState("")
+  const [tPts,setTPts]=useState("")
+
+  // ── Fixture form
+  const [fxHome,  setFxHome]  = useState("90 Stars Academy")
+  const [fxAway,  setFxAway]  = useState("")
+  const [fxDate,  setFxDate]  = useState("")
+  const [fxTime,  setFxTime]  = useState("")
+  const [fxVenue, setFxVenue] = useState("")
+  const [fxComp,  setFxComp]  = useState("League")
+
+  // ── Store form
+  const [stName,  setStName]  = useState("")
+  const [stDesc,  setStDesc]  = useState("")
+  const [stPrice, setStPrice] = useState("")
+  const [stStock, setStStock] = useState("")
+  const [stCat,   setStCat]   = useState("Kits")
+
+  // ── Fetch all data on mount ──────────────────────────────────
   useEffect(() => {
-    async function load() {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, tier, role")
-        .order("full_name", { ascending: true })
-      if (!error) {
-        setMembers(data || [])
-        setFiltered(data || [])
-      }
-      setLoading(false)
-    }
-    load()
+    fetchAll()
   }, [])
 
-  // ── Search filter ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    const q = search.toLowerCase()
-    setFiltered(
-      q
-        ? members.filter(m =>
-            (m.full_name||"").toLowerCase().includes(q) ||
-            (m.email||"").toLowerCase().includes(q)
-          )
-        : members
-    )
-  }, [search, members])
-
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const total      = members.length
-  const badgers    = members.filter(m => m.tier === "honey_badger").length
-  const globalFans = members.filter(m => m.tier === "global_fan").length
-
-  // ── Show toast ─────────────────────────────────────────────────────────────
-  function showToast(msg) {
-    setToast(msg)
-    setTimeout(() => setToast(""), 2500)
+  const fetchAll = async () => {
+    const [n, r, h, p, lt, f, s] = await Promise.all([
+      supabase.from("news").select("*").order("created_at", { ascending: false }),
+      supabase.from("results").select("*").order("created_at", { ascending: false }),
+      supabase.from("halftime_posts").select("*").order("created_at", { ascending: false }),
+      supabase.from("players").select("*").order("goals", { ascending: false }),
+      supabase.from("league_table").select("*").order("points", { ascending: false }),
+      supabase.from("fixtures").select("*").order("match_date"),
+      supabase.from("store_items").select("*").order("created_at"),
+    ])
+    if (n.data) setNewsList(n.data)
+    if (r.data) setResults(r.data)
+    if (h.data) setHalftime(h.data)
+    if (p.data) setPlayers(p.data)
+    if (lt.data) setTableRows(lt.data)
+    if (f.data) setFixtures(f.data)
+    if (s.data) setStoreItems(s.data)
   }
 
-  // ── Save tier / role change ────────────────────────────────────────────────
-  async function saveMember(id, field, value) {
-    setSaving(true)
-    const { error } = await supabase
-      .from("profiles")
-      .update({ [field]: value })
-      .eq("id", id)
-    if (!error) {
-      setMembers(prev =>
-        prev.map(m => m.id === id ? { ...m, [field]: value } : m)
-      )
-      showToast("✅ Updated successfully")
-    } else {
-      showToast("❌ Update failed")
-    }
-    setSaving(false)
-    setEditing(null)
+  const del = async (table, id, refresh) => {
+    await supabase.from(table).delete().eq("id", id)
+    refresh()
+    toast("Deleted", setToastMsg)
   }
 
-  // ── Initials helper ────────────────────────────────────────────────────────
-  function initials(name) {
-    if (!name) return "?"
-    return name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+  const refetch = (table, setter, order="created_at", asc=false) => async () => {
+    const { data } = await supabase.from(table).select("*").order(order, { ascending: asc })
+    if (data) setter(data)
   }
+
+  // ── TABS ─────────────────────────────────────────────────────
+  const tabs = [
+    { id:"news",     icon:"📰", label:"News"     },
+    { id:"results",  icon:"⚽", label:"Results"  },
+    { id:"halftime", icon:"📸", label:"Halftime" },
+    { id:"players",  icon:"👤", label:"Players"  },
+    { id:"table",    icon:"📊", label:"Table"    },
+    { id:"fixtures", icon:"📅", label:"Fixtures" },
+    { id:"store",    icon:"🛍", label:"Store"    },
+  ]
 
   return (
-    <>
-      <div style={S.overlay} onClick={onClose}>
-        <div style={S.sheet} onClick={e => e.stopPropagation()}>
+    <div style={S.overlay}>
 
-          {/* Header */}
-          <div style={S.header}>
-            <div>
-              <div style={S.headerTitle}>⚙️ ADMIN PANEL</div>
-              <div style={S.headerSub}>VILLAREAL FC · MEMBER MANAGEMENT</div>
-            </div>
-            <button style={S.closeBtn} onClick={onClose}>×</button>
-          </div>
-
-          <div style={S.body}>
-
-            {/* Stats */}
-            <div style={S.sectionLbl}>OVERVIEW</div>
-            <div style={S.statsRow}>
-              <div style={S.statCard}>
-                <div style={S.statVal}>{total}</div>
-                <div style={S.statLbl}>TOTAL USERS</div>
-              </div>
-              <div style={S.statCard}>
-                <div style={{ ...S.statVal, color:"#f5c518" }}>{badgers}</div>
-                <div style={S.statLbl}>HONEY BADGER</div>
-              </div>
-              <div style={S.statCard}>
-                <div style={{ ...S.statVal, color:"#facc15" }}>{globalFans}</div>
-                <div style={S.statLbl}>GLOBAL FAN</div>
-              </div>
-            </div>
-
-            {/* Search */}
-            <div style={S.sectionLbl}>MEMBERS</div>
-            <input
-              style={S.searchBox}
-              placeholder="Search by name or email…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-
-            {/* Member list */}
-            {loading ? (
-              <div style={{ textAlign:"center", padding:"30px 0",
-                fontFamily:"'Barlow Condensed',sans-serif",
-                color:MGRAY, fontSize:13, letterSpacing:"0.08em" }}>
-                LOADING MEMBERS…
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ textAlign:"center", padding:"30px 0",
-                fontFamily:"'Barlow Condensed',sans-serif",
-                color:MGRAY, fontSize:13 }}>
-                No members found
-              </div>
-            ) : (
-              filtered.map(m => (
-                <div key={m.id} style={S.memberRow}>
-                  <div style={S.avatar}>{initials(m.full_name)}</div>
-                  <div style={S.memberInfo}>
-                    <div style={S.memberName}>{m.full_name || "Unnamed"}</div>
-                    <div style={S.memberEmail}>{m.email}</div>
-                    {m.role === "admin" && (
-                      <div style={{ fontSize:9, color:"#f5c518",
-                        fontFamily:"'Barlow Condensed',sans-serif",
-                        fontWeight:800, letterSpacing:"0.1em", marginTop:2 }}>
-                        ADMIN
-                      </div>
-                    )}
-                  </div>
-                  {/* Tier pill — tap to edit */}
-                  <button
-                    style={{
-                      ...S.tierPill,
-                      background: TIER_COLORS[m.tier] || "#e2e8f0",
-                      color: NAVY,
-                    }}
-                    onClick={() => setEditing(m)}
-                  >
-                    {TIER_LABELS[m.tier] || m.tier}
-                  </button>
-                </div>
-              ))
-            )}
+      {/* Header */}
+      <div style={S.header}>
+        <div>
+          <div style={{fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900,
+            fontSize:20, color:GOLD, letterSpacing:2}}>ADMIN PANEL</div>
+          <div style={{fontSize:10, color:MGRAY, letterSpacing:2,
+            fontFamily:"'Barlow Condensed',sans-serif"}}>
+            VILLAREAL FC · FULL CONTROL
           </div>
         </div>
+        <button onClick={onClose} style={{
+          background:"transparent", border:`1px solid ${GOLD}`, color:GOLD,
+          padding:"7px 14px", borderRadius:5, fontSize:12,
+          fontFamily:"'Barlow Condensed',sans-serif", fontWeight:700,
+          letterSpacing:1, cursor:"pointer",
+        }}>✕ CLOSE</button>
       </div>
 
-      {/* ── Edit Modal ── */}
-      {editing && (
-        <div style={S.modalOverlay} onClick={() => setEditing(null)}>
-          <div style={S.modal} onClick={e => e.stopPropagation()}>
-            <div style={S.modalTitle}>{editing.full_name || "Unnamed"}</div>
-            <div style={S.modalSub}>{editing.email}</div>
+      {/* Tab bar */}
+      <div style={S.tabBar}>
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{
+            flex:"0 0 auto", padding:"9px 14px",
+            background:"transparent", border:"none",
+            borderBottom:`2px solid ${tab===t.id ? GOLD : "transparent"}`,
+            color: tab===t.id ? GOLD : MGRAY,
+            fontSize:11, fontFamily:"'Barlow Condensed',sans-serif",
+            fontWeight:700, cursor:"pointer", letterSpacing:0.5,
+            WebkitTapHighlightColor:"transparent",
+          }}>{t.icon} {t.label}</button>
+        ))}
+      </div>
 
-            {/* Tier options */}
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:800, fontSize:10, color:MGRAY,
-              letterSpacing:"0.1em", marginBottom:8 }}>
-              SET TIER
-            </div>
-            {TIERS.map(t => (
-              <button
-                key={t}
-                disabled={saving}
-                onClick={() => saveMember(editing.id, "tier", t)}
-                style={{
-                  ...S.optionBtn,
-                  background: editing.tier === t
-                    ? `${TIER_COLORS[t]}22`
-                    : "#f8fafc",
-                  borderColor: editing.tier === t
-                    ? TIER_COLORS[t]
-                    : "#e2e8f0",
-                  color: NAVY,
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                {TIER_LABELS[t]}
-                {editing.tier === t && (
-                  <span style={{ fontSize:12, color:TIER_COLORS[t] }}>✓ Current</span>
-                )}
-              </button>
-            ))}
+      <div style={S.section}>
 
-            {/* Role toggle */}
-            <div style={{ fontFamily:"'Barlow Condensed',sans-serif",
-              fontWeight:800, fontSize:10, color:MGRAY,
-              letterSpacing:"0.1em", margin:"16px 0 8px" }}>
-              SET ROLE
-            </div>
-            {ROLES.map(r => (
-              <button
-                key={r}
-                disabled={saving}
-                onClick={() => saveMember(editing.id, "role", r)}
-                style={{
-                  ...S.optionBtn,
-                  background: editing.role === r ? "#0f172a11" : "#f8fafc",
-                  borderColor: editing.role === r ? NAVY : "#e2e8f0",
-                  color: NAVY,
-                  opacity: saving ? 0.6 : 1,
-                }}
-              >
-                {r === "admin" ? "⚙️ Admin" : "👤 User"}
-                {editing.role === r && (
-                  <span style={{ fontSize:12, color:NAVY }}>✓ Current</span>
-                )}
-              </button>
-            ))}
+        {/* ══ NEWS ══════════════════════════════════════════════ */}
+        {tab === "news" && <>
+          <SecTitle>📰 Post News Article</SecTitle>
+          <Sel label="Tag" value={nTag} onChange={e=>setNTag(e.target.value)}
+            options={["MATCH REPORT","CLUB NEWS","ANNOUNCEMENT","COMMUNITY","TRANSFER"]} />
+          <Inp label="Headline" value={nTitle} onChange={e=>setNTitle(e.target.value)} placeholder="Article headline..." />
+          <Inp label="Body" textarea value={nBody} onChange={e=>setNBody(e.target.value)} placeholder="Full article..." />
+          <label style={{display:"flex", alignItems:"center", gap:8,
+            color:MGRAY, fontSize:13, marginBottom:14, cursor:"pointer"}}>
+            <input type="checkbox" checked={nPin} onChange={e=>setNPin(e.target.checked)}
+              style={{accentColor:GOLD, width:16, height:16}} />
+            Pin as featured story
+          </label>
+          <SaveBtn onClick={async () => {
+            if (!nTitle || !nBody) return
+            await supabase.from("news").insert({ tag:nTag, title:nTitle, body:nBody, pinned:nPin })
+            setNTitle(""); setNBody(""); setNPin(false)
+            refetch("news", setNewsList)()
+            toast("Article published!", setToastMsg)
+          }}>+ PUBLISH</SaveBtn>
 
-            <button style={S.cancelBtn} onClick={() => setEditing(null)}>
-              Cancel
-            </button>
+          <div style={S.divider} />
+          <SecTitle>Existing Articles ({newsList.length})</SecTitle>
+          {newsList.map(n => (
+            <Row key={n.id} label={n.title}
+              sub={`${n.tag} · ${new Date(n.created_at).toLocaleDateString()}${n.pinned?" · 📌":""}`}
+              onDelete={() => del("news", n.id, refetch("news", setNewsList))} />
+          ))}
+        </>}
+
+        {/* ══ RESULTS ═══════════════════════════════════════════ */}
+        {tab === "results" && <>
+          <SecTitle>⚽ Post Match Result</SecTitle>
+          <Inp label="Home Team" value={rHome} onChange={e=>setRHome(e.target.value)} />
+          <Inp label="Away Team" value={rAway} onChange={e=>setRAway(e.target.value)} placeholder="Opponent..." />
+          <div style={{display:"flex", gap:10}}>
+            <div style={{flex:1}}><Inp label="Home Score" type="number" value={rHS} onChange={e=>setRHS(e.target.value)} placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="Away Score" type="number" value={rAS} onChange={e=>setRAS(e.target.value)} placeholder="0" /></div>
           </div>
-        </div>
+          <Inp label="Goalscorers (e.g. Casemiro 67')" value={rScorers} onChange={e=>setRScorers(e.target.value)} placeholder="Player 55', Player 78'" />
+          <Inp label="GK / Notable Note" value={rGK} onChange={e=>setRGK(e.target.value)} placeholder="Bosena — brilliant saves..." />
+          <Inp label="Venue" value={rVenue} onChange={e=>setRVenue(e.target.value)} placeholder="Stadium name..." />
+          <Inp label="Date" value={rDate} onChange={e=>setRDate(e.target.value)} placeholder="23 May 2026" />
+          <Sel label="Competition" value={rComp} onChange={e=>setRComp(e.target.value)}
+            options={["League","Cup","Friendly","Playoff"]} />
+          <SaveBtn onClick={async () => {
+            if (!rAway) return
+            await supabase.from("results").insert({
+              home_team:rHome, away_team:rAway,
+              home_score:+rHS||0, away_score:+rAS||0,
+              scorers:rScorers, gk_note:rGK, venue:rVenue,
+              match_date:rDate, competition:rComp,
+            })
+            setRAway(""); setRHS(""); setRAS(""); setRScorers(""); setRGK(""); setRVenue(""); setRDate("")
+            refetch("results", setResults)()
+            toast("Result posted!", setToastMsg)
+          }}>+ POST RESULT</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Posted Results ({results.length})</SecTitle>
+          {results.map(r => (
+            <Row key={r.id}
+              label={`${r.home_team} ${r.home_score}–${r.away_score} ${r.away_team}`}
+              sub={`${r.competition} · ${r.match_date}`}
+              onDelete={() => del("results", r.id, refetch("results", setResults))} />
+          ))}
+        </>}
+
+        {/* ══ HALFTIME ══════════════════════════════════════════ */}
+        {tab === "halftime" && <>
+          <SecTitle>📸 Post Halftime Update</SecTitle>
+          <Inp label="Match (e.g. vs Golden Birds)" value={htMatch} onChange={e=>setHtMatch(e.target.value)} placeholder="vs Team Name" />
+          <Inp label="Caption / Post Text" textarea value={htCaption} onChange={e=>setHtCaption(e.target.value)} placeholder="What's happening at halftime..." />
+          <div style={{
+            background:"rgba(255,255,255,0.04)", border:`1px dashed rgba(255,255,255,0.1)`,
+            borderRadius:7, padding:16, textAlign:"center", marginBottom:14,
+          }}>
+            <div style={{fontSize:28, marginBottom:6}}>📷</div>
+            <div style={{fontSize:12, color:MGRAY}}>Image upload — wire to Supabase Storage bucket</div>
+            <div style={{fontSize:11, color:"rgba(255,255,255,0.2)", marginTop:4}}>Caption posts work now</div>
+          </div>
+          <SaveBtn onClick={async () => {
+            if (!htCaption) return
+            await supabase.from("halftime_posts").insert({ match_ref:htMatch, caption:htCaption })
+            setHtMatch(""); setHtCaption("")
+            refetch("halftime_posts", setHalftime)()
+            toast("Halftime post published!", setToastMsg)
+          }}>+ POST HALFTIME</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Halftime Posts ({halftime.length})</SecTitle>
+          {halftime.map(h => (
+            <Row key={h.id}
+              label={h.caption.substring(0,55) + (h.caption.length > 55 ? "..." : "")}
+              sub={`${h.match_ref || ""} · ${new Date(h.created_at).toLocaleDateString()}`}
+              onDelete={() => del("halftime_posts", h.id, refetch("halftime_posts", setHalftime))} />
+          ))}
+        </>}
+
+        {/* ══ PLAYERS ═══════════════════════════════════════════ */}
+        {tab === "players" && <>
+          <SecTitle>👤 Add Player</SecTitle>
+          <div style={{display:"flex", gap:10}}>
+            <div style={{flex:2}}><Inp label="Full Name" value={plName} onChange={e=>setPlName(e.target.value)} placeholder="Player name..." /></div>
+            <div style={{flex:1}}><Inp label="No." type="number" value={plNo} onChange={e=>setPlNo(e.target.value)} placeholder="#" /></div>
+          </div>
+          <Sel label="Position" value={plPos} onChange={e=>setPlPos(e.target.value)} options={["GK","DF","MF","FW"]} />
+          <div style={{display:"flex", gap:8}}>
+            <div style={{flex:1}}><Inp label="Apps"    type="number" value={plApps} onChange={e=>setPlApps(e.target.value)} placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="Goals"   type="number" value={plGls}  onChange={e=>setPlGls(e.target.value)}  placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="Assists" type="number" value={plAst}  onChange={e=>setPlAst(e.target.value)}  placeholder="0" /></div>
+          </div>
+          <div style={{display:"flex", gap:8}}>
+            <div style={{flex:1}}><Inp label="Saves"   type="number" value={plSvs} onChange={e=>setPlSvs(e.target.value)} placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="CS"      type="number" value={plCS}  onChange={e=>setPlCS(e.target.value)}  placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="🟨"      type="number" value={plY}   onChange={e=>setPlY(e.target.value)}   placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="🟥"      type="number" value={plR}   onChange={e=>setPlR(e.target.value)}   placeholder="0" /></div>
+          </div>
+          <SaveBtn onClick={async () => {
+            if (!plName) return
+            await supabase.from("players").insert({
+              name:plName, position:plPos, jersey_no:+plNo||0,
+              appearances:+plApps||0, goals:+plGls||0, assists:+plAst||0,
+              saves:+plSvs||0, clean_sheets:+plCS||0,
+              yellow_cards:+plY||0, red_cards:+plR||0,
+            })
+            setPlName(""); setPlNo(""); setPlApps(""); setPlGls(""); setPlAst("")
+            setPlSvs(""); setPlCS(""); setPlY(""); setPlR("")
+            refetch("players", setPlayers, "goals")()
+            toast("Player added!", setToastMsg)
+          }}>+ ADD PLAYER</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Squad ({players.length})</SecTitle>
+          {players.map(p => (
+            <Row key={p.id}
+              label={`#${p.jersey_no} ${p.name} — ${p.position}`}
+              sub={`Apps: ${p.appearances} · Goals: ${p.goals} · Assists: ${p.assists}`}
+              onDelete={() => del("players", p.id, refetch("players", setPlayers, "goals"))} />
+          ))}
+        </>}
+
+        {/* ══ TABLE ═════════════════════════════════════════════ */}
+        {tab === "table" && <>
+          <SecTitle>📊 Update League Table</SecTitle>
+          <Inp label="Club Name" value={tClub} onChange={e=>setTClub(e.target.value)} placeholder="Club name..." />
+          <div style={{display:"flex", gap:6, flexWrap:"wrap"}}>
+            {[["P",tP,setTP],["W",tW,setTW],["D",tD,setTD],["L",tL,setTL],["GF",tGF,setTGF],["GA",tGA,setTGA],["Pts",tPts,setTPts]].map(([l,v,s])=>(
+              <div key={l} style={{flex:"1 0 55px"}}>
+                <Inp label={l} type="number" value={v} onChange={e=>s(e.target.value)} placeholder="0" />
+              </div>
+            ))}
+          </div>
+          <SaveBtn onClick={async () => {
+            if (!tClub) return
+            await supabase.from("league_table").insert({
+              club:tClub, played:+tP||0, won:+tW||0, drawn:+tD||0,
+              lost:+tL||0, goals_for:+tGF||0, goals_against:+tGA||0, points:+tPts||0,
+            })
+            setTClub(""); setTP(""); setTW(""); setTD(""); setTL(""); setTGF(""); setTGA(""); setTPts("")
+            refetch("league_table", setTableRows, "points")()
+            toast("Table updated!", setToastMsg)
+          }}>+ ADD ROW</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Table ({tableRows.length} clubs)</SecTitle>
+          {tableRows.map(t => (
+            <Row key={t.id}
+              label={t.club}
+              sub={`P${t.played} W${t.won} D${t.drawn} L${t.lost} GF${t.goals_for} GA${t.goals_against} · ${t.points} pts`}
+              onDelete={() => del("league_table", t.id, refetch("league_table", setTableRows, "points"))} />
+          ))}
+        </>}
+
+        {/* ══ FIXTURES ══════════════════════════════════════════ */}
+        {tab === "fixtures" && <>
+          <SecTitle>📅 Add Fixture</SecTitle>
+          <Inp label="Home Team" value={fxHome} onChange={e=>setFxHome(e.target.value)} />
+          <Inp label="Away Team" value={fxAway} onChange={e=>setFxAway(e.target.value)} placeholder="Opponent..." />
+          <div style={{display:"flex", gap:10}}>
+            <div style={{flex:2}}><Inp label="Date" value={fxDate} onChange={e=>setFxDate(e.target.value)} placeholder="30 May 2026" /></div>
+            <div style={{flex:1}}><Inp label="Time" value={fxTime} onChange={e=>setFxTime(e.target.value)} placeholder="15:00" /></div>
+          </div>
+          <Inp label="Venue" value={fxVenue} onChange={e=>setFxVenue(e.target.value)} placeholder="Stadium..." />
+          <Sel label="Competition" value={fxComp} onChange={e=>setFxComp(e.target.value)}
+            options={["League","Cup","Friendly","Playoff"]} />
+          <SaveBtn onClick={async () => {
+            if (!fxAway) return
+            await supabase.from("fixtures").insert({
+              home_team:fxHome, away_team:fxAway, match_date:fxDate,
+              match_time:fxTime, venue:fxVenue, competition:fxComp,
+            })
+            setFxAway(""); setFxDate(""); setFxTime(""); setFxVenue("")
+            refetch("fixtures", setFixtures, "match_date", true)()
+            toast("Fixture added!", setToastMsg)
+          }}>+ ADD FIXTURE</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Fixtures ({fixtures.length})</SecTitle>
+          {fixtures.map(f => (
+            <Row key={f.id}
+              label={`${f.home_team} vs ${f.away_team}`}
+              sub={`${f.match_date} · ${f.match_time} · ${f.competition}`}
+              onDelete={() => del("fixtures", f.id, refetch("fixtures", setFixtures, "match_date", true))} />
+          ))}
+        </>}
+
+        {/* ══ STORE ═════════════════════════════════════════════ */}
+        {tab === "store" && <>
+          <SecTitle>🛍 Add Store Item</SecTitle>
+          <Inp label="Product Name" value={stName} onChange={e=>setStName(e.target.value)} placeholder="Item name..." />
+          <Inp label="Description" textarea value={stDesc} onChange={e=>setStDesc(e.target.value)} placeholder="Short description..." />
+          <div style={{display:"flex", gap:10}}>
+            <div style={{flex:1}}><Inp label="Price (BWP)" type="number" value={stPrice} onChange={e=>setStPrice(e.target.value)} placeholder="0" /></div>
+            <div style={{flex:1}}><Inp label="Stock" type="number" value={stStock} onChange={e=>setStStock(e.target.value)} placeholder="0" /></div>
+          </div>
+          <Sel label="Category" value={stCat} onChange={e=>setStCat(e.target.value)}
+            options={["Kits","Accessories","Training","Merchandise"]} />
+          <SaveBtn onClick={async () => {
+            if (!stName || !stPrice) return
+            await supabase.from("store_items").insert({
+              name:stName, description:stDesc, price:+stPrice,
+              stock:+stStock||0, category:stCat,
+            })
+            setStName(""); setStDesc(""); setStPrice(""); setStStock("")
+            refetch("store_items", setStoreItems)()
+            toast("Item added!", setToastMsg)
+          }}>+ ADD ITEM</SaveBtn>
+
+          <div style={S.divider} />
+          <SecTitle>Store Items ({storeItems.length})</SecTitle>
+          {storeItems.map(s => (
+            <Row key={s.id}
+              label={s.name}
+              sub={`P${s.price} · Stock: ${s.stock} · ${s.category}`}
+              onDelete={() => del("store_items", s.id, refetch("store_items", setStoreItems))} />
+          ))}
+        </>}
+
+      </div>
+
+      {/* Toast */}
+      {toastMsg && (
+        <div style={{
+          position:"fixed", bottom:80, left:"50%", transform:"translateX(-50%)",
+          background: GREEN, color: WHITE, padding:"10px 20px",
+          borderRadius:7, fontSize:13, fontFamily:"'Barlow Condensed',sans-serif",
+          fontWeight:700, letterSpacing:1, zIndex:999, whiteSpace:"nowrap",
+          boxShadow:"0 4px 20px rgba(0,0,0,0.4)",
+        }}>✓ {toastMsg}</div>
       )}
 
-      {/* ── Toast ── */}
-      {toast && <div style={S.toast}>{toast}</div>}
-    </>
+    </div>
   )
 }
